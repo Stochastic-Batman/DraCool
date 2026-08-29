@@ -61,6 +61,25 @@ On WSL with the repository under `/mnt/c`, put the environment on the Linux file
 export UV_PROJECT_ENVIRONMENT="$HOME/.venvs/tenshadows"    # add to ~/.bashrc
 ```
 
+## Adding a city
+
+Drop a TOML file into `pipeline/cities/`. No code changes, anywhere.
+
+```toml
+# pipeline/cities/porto.toml
+display_name = "Porto"
+osm_query = "Porto, Portugal"
+
+[center]
+lon = -8.6110
+lat = 41.1496
+```
+
+The filename stem is the city key, so this becomes `tenshadows build --city porto` and exports to `web/static/data/porto/`. The UTM zone is derived from the centre; state it as `[crs] expected_utm_epsg` if you want it asserted rather than inferred.
+
+Bear in mind that the type-based building heights in `shared/constants.json` are calibrated for European building stock. Somewhere with a very different housing profile may want those numbers changed.
+
+
 ## Known limitations
 
 These are deliberate simplifications, documented in Section 7 of the specification, not bugs:
