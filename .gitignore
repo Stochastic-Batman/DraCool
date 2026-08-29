@@ -1,0 +1,39 @@
+# Ignore roadmaps, nobody will care about that
+*.md
+!README.md
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+
+# OSMnx / Overpass download cache (see pipeline/tenshadows/fetch.py, phase 2)
+pipeline/.cache/
+
+# Node / SvelteKit
+node_modules/
+.svelte-kit/
+web/build/
+
+# Built city artifacts. The mini test fixture under pipeline/fixtures/ is
+# committed on purpose; full-city data is generated in CI.
+web/static/data/
+
+# LaTeX build products 
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# OS
+.DS_Store
+Thumbs.db

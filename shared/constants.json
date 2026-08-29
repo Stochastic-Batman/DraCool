@@ -1,0 +1,58 @@
+{
+  "_comment": "Single source of truth for every constant used by BOTH the Python pipeline and the Svelte client. Read by pipeline/tenshadows/constants.py and by web/src/lib/constants.js. Section references below are to docs/TenShadows.tex.",
+  "version": 1,
+
+  "solar": {
+    "_comment": "Section 3.3, clamping the degenerate cases. sunset_altitude_deg is the threshold at or below which the sun has set and sigma(e) = 1 for every edge by convention (Definition 1). min_altitude_deg is a_min, below which the shadow length cap applies.",
+    "sunset_altitude_deg": 0.0,
+    "min_altitude_deg": 5.0
+  },
+
+  "shadow": {
+    "_comment": "Section 3.3. L_max, the cap on shadow length at low sun.",
+    "max_length_m": 200.0
+  },
+
+  "sampling": {
+    "_comment": "Section 5.2. Delta, the spacing between sample points along an edge. At 5 m the estimator error sits well under a percent for a typical block, and refining it buys precision the building heights cannot support.",
+    "spacing_m": 5.0
+  },
+
+  "heights": {
+    "_comment": "Section 7. OSM height data is sparse, so heights resolve in order: an explicit `height` tag, then `building:levels` * storey_height_m, then the type-based default below, then default_height_m. by_building_type_m is keyed by the OSM `building` tag value. These are just my heuristics, they can be as wrong as it get.",
+    "storey_height_m": 3.0,
+    "default_height_m": 8.0,
+    "by_building_type_m": {
+      "apartments": 15.0,
+      "residential": 12.0,
+      "house": 6.0,
+      "detached": 6.0,
+      "terrace": 8.0,
+      "bungalow": 4.0,
+      "hut": 3.0,
+      "shed": 3.0,
+      "garage": 3.0,
+      "garages": 3.0,
+      "carport": 3.0,
+      "roof": 3.0,
+      "kiosk": 3.0,
+      "retail": 6.0,
+      "commercial": 12.0,
+      "office": 15.0,
+      "industrial": 9.0,
+      "warehouse": 9.0,
+      "hotel": 18.0,
+      "school": 9.0,
+      "university": 15.0,
+      "hospital": 15.0,
+      "church": 20.0,
+      "cathedral": 30.0,
+      "chapel": 8.0,
+      "mosque": 15.0,
+      "synagogue": 15.0,
+      "train_station": 12.0,
+      "civic": 12.0,
+      "public": 12.0
+    }
+  }
+}
