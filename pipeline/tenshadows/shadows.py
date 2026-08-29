@@ -1,4 +1,4 @@
-""" `_boundary_rings` and `sweep` were written by Claude Sonnet 5."""
+"""`_boundary_rings` and `sweep` were written by Claude Sonnet 5."""
 
 from __future__ import annotations
 

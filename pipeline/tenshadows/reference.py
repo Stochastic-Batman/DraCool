@@ -5,7 +5,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final
 
+import shapely
+
 from tenshadows.cities import all_cities
+from tenshadows.constants import CONSTANTS
 from tenshadows.shadows import shadow_displacement, shadow_length
 from tenshadows.solar import SunPosition, sun_position
 
@@ -96,6 +99,92 @@ def shadow_cases() -> list[dict[str, Any]]:
     return cases
 
 
+# A small scene rather than the whole fixture: self-contained, so the browser
+# suite needs nothing but this file, and small enough to commit. Sun positions
+# are given directly as (a, A) because solar.json already pins the timestamp to
+# position step; this file is about what happens after it.
+SCENE_SIDE_M: Final[float] = 260.0
+SCENE_SUNS: Final[tuple[tuple[str, float, float], ...]] = (
+    ("capped", 3.0, 100.0),  # below a_min, so the Section 3.3 cap is in force
+    ("low", 8.0, 100.0),
+    ("high", 55.0, 180.0),
+    ("night", -5.0, 270.0),  # Definition 1's convention: sigma = 1 everywhere
+)
+
+
+def shade_cases() -> dict[str, Any]:
+    """Footprints, edges and their shadow fractions for one small scene.
+
+    Coordinates are metres in a local frame whose origin is stated in the file,
+    deliberately not degrees. Projection is tested on its own; this file exists
+    to test Proposition 2 and the Section 5.2 sampling, and feeding both
+    languages identical metric coordinates keeps a projection difference from
+    being mistaken for a shading difference.
+    """
+    import osmnx as ox
+
+    from tenshadows.cities import get_city
+    from tenshadows.crs import to_utm, utm_crs_for
+    from tenshadows.fetch import load_fixture_buildings, load_fixture_graph
+    from tenshadows.fraction import Occluders, fraction_raycast
+    from tenshadows.heights import resolve_frame
+
+    city = get_city("tbilisi")
+    buildings = to_utm(resolve_frame(load_fixture_buildings()), city).reset_index(drop=True)
+    crs = utm_crs_for(buildings)
+    edges = ox.graph_to_gdfs(ox.project_graph(load_fixture_graph(), to_crs=crs), nodes=False)
+
+    minx, miny, maxx, maxy = buildings.total_bounds
+    ox0, oy0 = (minx + maxx) / 2.0, (miny + maxy) / 2.0
+    scene = shapely.box(
+        ox0 - SCENE_SIDE_M / 2,
+        oy0 - SCENE_SIDE_M / 2,
+        ox0 + SCENE_SIDE_M / 2,
+        oy0 + SCENE_SIDE_M / 2,
+    )
+
+    # Clip both to the same box. Sigma is then computed from exactly the
+    # buildings this file carries, so the scene is self-consistent even though
+    # buildings outside it would shade differently in the real city.
+    inside = buildings[buildings.intersects(scene)].reset_index(drop=True)
+    edges = edges[edges.intersects(scene)].reset_index(drop=True)
+    occluders = Occluders.from_frame(inside)
+
+    suns = [
+        {"label": label, "altitude_deg": altitude, "azimuth_deg": azimuth}
+        for label, altitude, azimuth in SCENE_SUNS
+    ]
+    sigma = [
+        [
+            round(
+                fraction_raycast(geometry, occluders, SunPosition(altitude_deg=a, azimuth_deg=A)),
+                9,
+            )
+            for _, a, A in SCENE_SUNS
+        ]
+        for geometry in edges.geometry
+    ]
+
+    def local(geometry: Any) -> list[list[float]]:
+        return [
+            [round(x - ox0, 3), round(y - oy0, 3)] for x, y in shapely.get_coordinates(geometry)
+        ]
+
+    return {
+        "units": "metres, local frame",
+        "origin_utm": {"epsg": crs.to_epsg(), "easting": round(ox0, 3), "northing": round(oy0, 3)},
+        "sampling_spacing_m": CONSTANTS.sampling.spacing_m,
+        "suns": suns,
+        "buildings": [
+            {"height_m": round(float(h), 3), "polygon": local(g)}
+            for g, h in zip(inside.geometry, inside["height_m"], strict=True)
+        ],
+        "edges": [
+            {"polyline": local(g), "sigma": s} for g, s in zip(edges.geometry, sigma, strict=True)
+        ],
+    }
+
+
 def _write(target: Path, comment: str, cases: list[dict[str, Any]]) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = {"_comment": comment, "cases": cases}
@@ -119,6 +208,14 @@ def write_reference(directory: Path | None = None) -> Path:
         f"{generated} Proposition 1 and the Section 3.3 cap. Lengths in metres.",
         shadow_cases(),
     )
+
+    scene = shade_cases()
+    scene["_comment"] = (
+        f"{generated} Proposition 2 and the Section 5.2 sampling, on one small self-contained "
+        f"scene. Coordinates are metres in the local frame described by origin_utm, not degrees."
+    )
+    (target / "shade_mini.json").write_text(json.dumps(scene, indent=2) + "\n", encoding="utf-8")
+
     return target
 
 

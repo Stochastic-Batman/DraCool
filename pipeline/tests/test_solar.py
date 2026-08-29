@@ -17,8 +17,12 @@ from tenshadows.solar import SunPosition, sun_position
 SYDNEY = (-33.8688, 151.2093)
 
 
+# times=() asks for nothing but the meridian crossing, which is all this needs.
+# The default set includes astronomical twilight, and above roughly 48 degrees in
+# midsummer the sun never gets 18 degrees below the horizon, so suncalc takes the
+# arccos of something outside [-1, 1] and warns on a value we never read.
 def _solar_noon(lat: float, lon: float, year: int, month: int, day: int) -> datetime:
-    times = suncalc.get_times(datetime(year, month, day, tzinfo=UTC), lon, lat)
+    times = suncalc.get_times(datetime(year, month, day, tzinfo=UTC), lon, lat, times=())
     noon = times["solar_noon"]
     return noon.replace(tzinfo=UTC) if noon.tzinfo is None else noon
 
