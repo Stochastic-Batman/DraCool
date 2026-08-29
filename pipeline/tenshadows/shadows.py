@@ -14,7 +14,6 @@ from tenshadows.constants import CONSTANTS
 from tenshadows.solar import SunPosition
 
 
-
 def shadow_length(height_m: float, sun: SunPosition) -> float:
     """L = h / tan(a), with the low-sun cap of Section 3.3."""
     if sun.is_night:
