@@ -72,6 +72,18 @@ uv run ruff format .         # format
 uv run pytest
 ```
 
+Examples of some commands:
+
+```sh
+uv run tenshadows cities              # list the defined cities
+uv run tenshadows build --city porto  # fetch one city and report what came back
+uv run tenshadows build --all         # every defined city
+uv run tenshadows fixture             # rebuild the offline test extract from OSM
+uv run tenshadows reference           # regenerate the cross-language values
+```
+
+`build` and `fixture` are the only commands that touch the network. Overpass responses are cached under `pipeline/.cache/`, so re-running a city does not re-download it. The test suite never hits the network: it runs against the committed extract in `pipeline/fixtures/mini/`.
+
 `fixtures/reference/` records what the pipeline answers for a fixed set of inputs. The browser implements the same maths, so its test suite asserts against that file and the two cannot drift apart unnoticed. The inputs are pinned rather than sampled: two implementations can only be compared if both are asked the same question, and a fixed set of questions means any diff in the file is a real change in behaviour. Regenerate after changing anything it covers, and read the diff:
 
 ```sh
@@ -98,6 +110,17 @@ The filename stem is the city key, so this becomes `tenshadows build --city port
 Bear in mind that the type-based building heights in `shared/constants.json` are calibrated for European building stock. Somewhere with a very different housing profile may want those numbers changed.
 
 
+## License
+
+The code is **MIT** ([LICENSE](LICENSE)). Do whatever you like with it - fork it, change it, ship it commercially - and it comes with no warranty and no liability on me.
+
+The map data is **not** mine to license that way. It comes from OpenStreetMap and stays under the Open Database Licence:
+
+> Map data © OpenStreetMap contributors, available under the [ODbL](https://opendatacommons.org/licenses/odbl/1-0/).
+
+That covers the test extract in `pipeline/fixtures/mini/` and every city artifact the pipeline builds, because reshaping OSM data produces a derived database. In practice it means anything you deploy publicly has to credit OpenStreetMap on screen, and a modified copy of the *data* has to stay ODbL. Your own code is unaffected. See [LICENSE-DATA](LICENSE-DATA).
+
+
 ## Known limitations
 
 These are deliberate simplifications, documented in Section 7 of the specification, not bugs:
@@ -106,4 +129,4 @@ These are deliberate simplifications, documented in Section 7 of the specificati
 - Only buildings cast shadows. Trees are ignored, and on residential streets trees are very often the dominant source of shade.
 - Buildings are opaque flat-roofed prisms of a single height.
 - Only direct sunlight is modelled.
-- **Building heights come from OSM tags that are sparse.** Only 0.23% of Tbilisi's buildings and 0.14% of Saarbrücken's carry an explicit `height` tag; `building:levels` covers roughly 15% and 19%. The large majority fall back to a type-based default. This is the dominant error source in the whole system, and the client reports it rather than hiding it.
+- **Building heights come from OSM tags that are sparse.** A fraction of a percent of buildings carry an explicit `height` tag and only a minority carry `building:levels`, so most heights are a type-based default. This is the dominant error source in the whole system, and the client reports it rather than hiding it. Figures are not quoted here because they drift as the map is edited and depend strongly on the boundary measured - over Saarbrücken, `building:levels` covers 29% within the city limits but 13% across the surrounding bounding box. Run `tenshadows build --city <key>` for your own city's numbers.

@@ -1,0 +1,43 @@
+Data licence
+============
+
+The MIT licence in LICENSE covers the source code of this project. It does not
+cover the map data, which comes from OpenStreetMap and carries its own terms.
+
+    Map data © OpenStreetMap contributors, available under the Open Database
+    Licence (ODbL) v1.0.
+
+    https://www.openstreetmap.org/copyright
+    https://opendatacommons.org/licenses/odbl/1-0/
+
+
+What this covers
+----------------
+
+Any file in this repository derived from OpenStreetMap, which currently means:
+
+    pipeline/fixtures/mini/buildings.geojson    building footprints and tags
+    pipeline/fixtures/mini/graph.graphml        pedestrian street network
+
+and, once the pipeline emits them, every built city artifact under
+web/static/data/ (the street graph, the building footprints and heights, and
+anything computed from them).
+
+The pipeline downloads from OpenStreetMap and reshapes what it downloads, so
+its output is a derived database in the ODbL's sense. That is why the licence
+travels with the data even though the code that produced it is MIT.
+
+
+What that means if you use this
+-------------------------------
+
+Attribute. Any public use of the data, including a deployed copy of the web
+client, must credit "© OpenStreetMap contributors" somewhere a user can see.
+
+Share alike. If you publish a modified version of the data, publish it under
+the ODbL as well. This obligation is on the data, not on your code: you may
+keep your own source code under any licence you like, MIT included.
+
+Nothing here restricts the code. Fork it, change it, sell it, relicense your
+changes. The only obligations attach to the map data, and they come from
+OpenStreetMap rather than from this project.

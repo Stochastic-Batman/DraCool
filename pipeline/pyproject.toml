@@ -8,6 +8,7 @@ build-backend = "hatchling.build"
 name = "tenshadows"
 version = "0.1.0"
 description = "Shadow-aware pedestrian routing"
+license = "MIT"
 requires-python = ">=3.11"
 authors = [{ name = "Stochastic Batman" }]
 
@@ -28,6 +29,9 @@ dependencies = [
 [dependency-groups]
 dev = ["pytest>=8.0", "ruff>=0.6"]
 
+
+[project.scripts]
+tenshadows = "tenshadows.cli:app"
 
 [project.urls]
 Repository = "https://github.com/Stochastic-Batman/TenShadows"
