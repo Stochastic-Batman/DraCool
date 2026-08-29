@@ -20,6 +20,8 @@ All of it is derived from scratch in **[docs/TenShadows.pdf](docs/TenShadows.pdf
 
 That document is the specification. Where the code and the document disagree (in case of logical bugs), the document is right and the code is wrong.
 
+**Read it before reading the code.** The code does not re-explain the math. Symbols keep the names the document gives them, and the constants they depend on are documented in the document and in `shared/constants.json` rather than at each use site.
+
 
 ## Architecture
 
@@ -51,6 +53,12 @@ The pipeline uses [uv](https://docs.astral.sh/uv/). It provisions the interprete
 cd pipeline
 uv sync
 uv run pytest
+```
+
+On WSL with the repository under `/mnt/c`, put the environment on the Linux filesystem instead - Windows drives are exposed over a 9p mount, and importing GeoPandas and OSMnx touches thousands of small files. Measured here, identical packages either way: 27 s per import from `/mnt/c` against 0.9 s from ext4, which is a cost every `pytest` run pays before a single assertion.
+
+```sh
+export UV_PROJECT_ENVIRONMENT="$HOME/.venvs/tenshadows"    # add to ~/.bashrc
 ```
 
 ## Known limitations

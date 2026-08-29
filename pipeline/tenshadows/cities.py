@@ -1,33 +1,34 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Final, Mapping
+from typing import Final
 
 
 @dataclass(frozen=True)
 class City:
     """A city the pipeline knows how to build."""
 
-    #: Short lowercase identifier. Used on the command line and as the output
-    #: directory name under ``web/static/data/``.
+    # Short lowercase identifier. Used on the command line and as the output
+    # directory name under ``web/static/data/``.
     key: str
 
-    #: Human-readable name, shown in the client.
+    # Human-readable name, shown in the client.
     display_name: str
 
-    #: Query string handed to OSMnx to resolve the city boundary.
+    # Query string handed to OSMnx to resolve the city boundary.
     osm_query: str
 
-    #: Longitude of the ENU projection origin, in degrees east.
+    # Longitude of the ENU projection origin, in degrees east.
     center_lon: float
 
-    #: Latitude of the ENU projection origin, in degrees north.
+    # Latitude of the ENU projection origin, in degrees north.
     center_lat: float
 
-    #: The UTM zone this city falls in, as an EPSG code. This is asserted
-    #: against ``estimate_utm_crs()`` rather than derived from it, so that a
-    #: wrong projection cannot reach the geometry stage.
+    # The UTM zone this city falls in, as an EPSG code. This is asserted
+    # against ``estimate_utm_crs()`` rather than derived from it, so that a
+    # wrong projection cannot reach the geometry stage.
     expected_utm_epsg: int
 
     @property

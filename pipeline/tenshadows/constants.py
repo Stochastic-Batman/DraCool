@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Final, Mapping
+from typing import Any, Final
 
 
 SUPPORTED_VERSION: Final[int] = 1
@@ -79,7 +80,7 @@ def load_constants(path: Path | None = None) -> Constants:
         raise FileNotFoundError(
             f"Shared constants not found at {source}. This file is the single "
             f"source of truth for both the Python pipeline and the browser "
-            f" client; the pipeline cannot run without it."
+            f"client; the pipeline cannot run without it."
         )
 
     raw: dict[str, Any] = json.loads(source.read_text(encoding="utf-8"))
@@ -119,5 +120,5 @@ def load_constants(path: Path | None = None) -> Constants:
     )
 
 
-#: Import this rather than calling`load_constants` repeatedly.
+# Import this rather than calling `load_constants` repeatedly.
 CONSTANTS: Final[Constants] = load_constants()
