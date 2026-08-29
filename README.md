@@ -61,6 +61,24 @@ On WSL with the repository under `/mnt/c`, put the environment on the Linux file
 export UV_PROJECT_ENVIRONMENT="$HOME/.venvs/tenshadows"    # add to ~/.bashrc
 ```
 
+## Development
+
+`ruff` covers linting, import sorting and formatting, so there is no separate isort or black to install. Import order is rule `I` in the existing lint selection.
+
+```sh
+uv run ruff check .          # lint, including import order
+uv run ruff check --fix .    # apply the fixable findings
+uv run ruff format .         # format
+uv run pytest
+```
+
+`fixtures/reference/` records what the pipeline answers for a fixed set of inputs. The browser implements the same maths, so its test suite asserts against that file and the two cannot drift apart unnoticed. The inputs are pinned rather than sampled: two implementations can only be compared if both are asked the same question, and a fixed set of questions means any diff in the file is a real change in behaviour. Regenerate after changing anything it covers, and read the diff:
+
+```sh
+uv run python -m tenshadows.reference
+```
+
+
 ## Adding a city
 
 Drop a TOML file into `pipeline/cities/`. No code changes, anywhere.
