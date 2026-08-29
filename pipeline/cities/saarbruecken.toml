@@ -1,0 +1,12 @@
+display_name = "Saarbrücken"
+
+osm_query = "Saarbrücken, Germany"
+
+[center]
+lon = 7.0000 
+lat = 49.2326
+
+# Optional. Asserted against estimate_utm_crs() so a wrong projection cannot
+# reach the geometry stage. Omit it and the zone is derived from the centre.
+[crs]
+expected_utm_epsg = 32632  # UTM zone 32N

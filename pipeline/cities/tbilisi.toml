@@ -1,0 +1,12 @@
+display_name = "Tbilisi"
+
+osm_query = "Tbilisi, Georgia"
+
+[center]
+lon = 44.8336
+lat = 41.6941
+
+# Optional. Asserted against estimate_utm_crs() so a wrong projection cannot
+# reach the geometry stage. Omit it and the zone is derived from the centre.
+[crs]
+expected_utm_epsg = 32638  # UTM zone 38N
