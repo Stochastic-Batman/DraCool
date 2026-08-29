@@ -76,11 +76,13 @@ Examples of some commands:
 
 ```sh
 uv run tenshadows cities              # list the defined cities
-uv run tenshadows build --city porto  # fetch one city and report what came back
+uv run tenshadows build --city porto  # fetch one city, write its artifacts
 uv run tenshadows build --all         # every defined city
 uv run tenshadows fixture             # rebuild the offline test extract from OSM
 uv run tenshadows reference           # regenerate the cross-language values
 ```
+
+`build` writes `meta.json`, `buildings.geojson` and `graph.json` into `web/static/data/<city>/`. Those are generated, not committed: the whole of Tbilisi is about 7 MB gzipped, and it is cheaper to rebuild than to carry in the history.
 
 `build` and `fixture` are the only commands that touch the network. Overpass responses are cached under `pipeline/.cache/`, so re-running a city does not re-download it. The test suite never hits the network: it runs against the committed extract in `pipeline/fixtures/mini/`.
 

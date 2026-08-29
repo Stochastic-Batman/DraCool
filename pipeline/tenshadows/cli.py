@@ -1,25 +1,34 @@
 from __future__ import annotations
 
+import json
+
 import typer
 
 from tenshadows.cities import City, all_cities, get_city
+from tenshadows.export import export_city
 from tenshadows.fetch import fetch_buildings, fetch_graph, write_fixture
-from tenshadows.heights import provenance, resolve_frame
+from tenshadows.graph import street_graph
+from tenshadows.heights import resolve_frame
 from tenshadows.reference import write_reference
 
 
 app = typer.Typer(add_completion=False, help="TenShadows data pipeline.")
 
 
-def _report(city: City) -> None:
-    graph = fetch_graph(city)
+def _build(city: City) -> None:
     buildings = resolve_frame(fetch_buildings(city))
+    streets = street_graph(fetch_graph(city), city)
+    target = export_city(city, streets, buildings)
+
+    meta = json.loads((target / "meta.json").read_text(encoding="utf-8"))
+    counts = meta["counts"]
 
     typer.echo(f"{city.display_name} ({city.key})")
-    typer.echo(f"  graph      {graph.number_of_nodes()} nodes, {graph.number_of_edges()} edges")
-    typer.echo(f"  buildings  {len(buildings)}")
-    shares = "  ".join(f"{k} {v:.1%}" for k, v in provenance(buildings).items())
+    typer.echo(f"  graph      {counts['nodes']} nodes, {counts['edges']} edges")
+    typer.echo(f"  buildings  {counts['buildings']}")
+    shares = "  ".join(f"{k} {v:.1%}" for k, v in meta["height_provenance"].items())
     typer.echo(f"  heights    {shares}")
+    typer.echo(f"  written    {target}")
 
 
 @app.command()
@@ -27,7 +36,7 @@ def build(
     city: str = typer.Option(None, "--city", help="City key, i.e. a filename in cities/."),
     build_all: bool = typer.Option(False, "--all", help="Build every defined city."),
 ) -> None:
-    """Fetch a city and report what came back."""
+    """Fetch a city and write its artifacts under web/static/data/."""
     if build_all:
         targets = list(all_cities())
     elif city is not None:
@@ -36,7 +45,7 @@ def build(
         raise typer.BadParameter("give --city <key> or --all. `tenshadows cities` lists them.")
 
     for target in targets:
-        _report(target)
+        _build(target)
 
 
 @app.command()
