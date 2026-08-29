@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
+import geopandas as gpd
+import networkx as nx
 import typer
 
 from tenshadows.cities import City, all_cities, get_city
-from tenshadows.export import export_city
-from tenshadows.fetch import fetch_buildings, fetch_graph, write_fixture
+from tenshadows.export import export_city, write_manifest
+from tenshadows.fetch import (
+    MINI_BBOX,
+    fetch_buildings,
+    fetch_graph,
+    load_fixture_buildings,
+    load_fixture_graph,
+    write_fixture,
+)
 from tenshadows.graph import street_graph
 from tenshadows.heights import resolve_frame
 from tenshadows.reference import write_reference
@@ -15,10 +25,9 @@ from tenshadows.reference import write_reference
 app = typer.Typer(add_completion=False, help="TenShadows data pipeline.")
 
 
-def _build(city: City) -> None:
-    buildings = resolve_frame(fetch_buildings(city))
-    streets = street_graph(fetch_graph(city), city)
-    target = export_city(city, streets, buildings)
+def _export(city: City, buildings: gpd.GeoDataFrame, graph: nx.MultiDiGraph) -> None:
+    streets = street_graph(graph, city)
+    target = export_city(city, streets, resolve_frame(buildings))
 
     meta = json.loads((target / "meta.json").read_text(encoding="utf-8"))
     counts = meta["counts"]
@@ -45,7 +54,8 @@ def build(
         raise typer.BadParameter("give --city <key> or --all. `tenshadows cities` lists them.")
 
     for target in targets:
-        _build(target)
+        _export(target, fetch_buildings(target), fetch_graph(target))
+    typer.echo(str(write_manifest()))
 
 
 @app.command()
@@ -53,6 +63,21 @@ def cities() -> None:
     """List the defined cities."""
     for city in all_cities():
         typer.echo(f"{city.key:16s} {city.display_name:16s} EPSG:{city.expected_utm_epsg}")
+
+
+@app.command()
+def mini() -> None:
+    """Export the committed test fixture as a city, for client work without a full build."""
+    west, south, east, north = MINI_BBOX
+    city = replace(
+        get_city("tbilisi"),
+        key="mini",
+        display_name="Tbilisi (old town)",
+        center_lon=(west + east) / 2,
+        center_lat=(south + north) / 2,
+    )
+    _export(city, load_fixture_buildings(), load_fixture_graph())
+    typer.echo(str(write_manifest()))
 
 
 @app.command()

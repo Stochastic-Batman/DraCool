@@ -27,3 +27,23 @@ jobs:
       - run: uv run ruff check .
 
       - run: uv run pytest
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # ci rather than install, so the lockfile is what gets built.
+      - run: npm ci
+
+      - run: npm run build

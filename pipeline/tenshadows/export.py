@@ -154,6 +154,21 @@ def export_city(
     return target
 
 
+def write_manifest(directory: Path | None = None) -> Path:
+    """The list of cities the client offers, from what is actually on disk."""
+    target = directory or DATA_DIR
+    target.mkdir(parents=True, exist_ok=True)
+
+    cities = []
+    for path in sorted(target.glob("*/meta.json")):
+        meta = json.loads(path.read_text(encoding="utf-8"))
+        cities.append({key: meta[key] for key in ("city", "display_name", "center", "bbox")})
+
+    manifest = target / "cities.json"
+    _write_json(manifest, {"cities": cities})
+    return manifest
+
+
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     # ensure_ascii=False: display_name and the attribution are text meant to be
     # read, and escaping them costs bytes in the artifact for nothing.

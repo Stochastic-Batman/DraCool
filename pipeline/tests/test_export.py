@@ -14,7 +14,7 @@ from shapely.geometry import LineString
 
 from tenshadows.cities import get_city
 from tenshadows.crs import to_utm
-from tenshadows.export import COORD_DECIMALS, HEIGHT_CODES, export_city
+from tenshadows.export import COORD_DECIMALS, HEIGHT_CODES, export_city, write_manifest
 from tenshadows.fetch import load_fixture_buildings, load_fixture_graph
 from tenshadows.graph import StreetGraph, oriented, street_graph
 from tenshadows.heights import resolve_frame
@@ -200,3 +200,14 @@ def test_oriented_reverses_only_when_it_has_to() -> None:
     line = LineString([(0.0, 0.0), (1.0, 1.0)])
     assert oriented(line, (0.0, 0.0)) is line
     assert list(oriented(line, (1.0, 1.0)).coords) == [(1.0, 1.0), (0.0, 0.0)]
+
+
+def test_the_manifest_lists_what_was_exported(
+    tmp_path: Path, streets: StreetGraph, buildings: gpd.GeoDataFrame
+) -> None:
+    export_city(TBILISI, streets, buildings, tmp_path / "tbilisi")
+    (tmp_path / "half-built").mkdir()
+
+    manifest = json.loads(write_manifest(tmp_path).read_text(encoding="utf-8"))
+    assert [entry["city"] for entry in manifest["cities"]] == ["tbilisi"]
+    assert set(manifest["cities"][0]) == {"city", "display_name", "center", "bbox"}

@@ -29,7 +29,7 @@ Static and zerocost, designed to run entirely on GitHub Pages.
 
 **Python pipeline (`pipeline/`)** downloads the walking network and building footprints from OpenStreetMap, resolves building heights from sparse OSM tags, computes edge lengths in a projected metric CRS, and exports the graph and building geometry as `EPSG:4326` artifacts.
 
-**Svelte client (`web/`)** loads those artifacts, computes the sun's position for the chosen time with SunCalc, determines each edge's shadow fraction live in a Web Worker by ray-casting against the building footprints, and runs A\* in the browser.
+**Svelte client (`web/`)** loads those artifacts, computes the sun's position for the chosen time with SunCalc, determines each edge's shadow fraction live in a Web Worker by ray-casting against the building footprints, and runs A\* in the browser. **THE ENTIRE FRONTEND IS WRITTEN VIA CLAUDE SONNET 5 UNDER MY SUPERVISION.**
 
 Shadow fractions are computed in the browser rather than baked into the artifacts, because a baked fraction is only valid for the one instant it was computed for. 
 
@@ -55,10 +55,23 @@ uv sync
 uv run pytest
 ```
 
-On WSL with the repository under `/mnt/c`, put the environment on the Linux filesystem instead - Windows drives are exposed over a 9p mount, and importing GeoPandas and OSMnx touches thousands of small files. Measured here, identical packages either way: 27 s per import from `/mnt/c` against 0.9 s from ext4, which is a cost every `pytest` run pays before a single assertion.
+## The client
+
+The Svelte client lives in `web/` and reads whatever the pipeline has put in `web/static/data/`. 
 
 ```sh
-export UV_PROJECT_ENVIRONMENT="$HOME/.venvs/tenshadows"    # add to ~/.bashrc
+cd pipeline && uv run tenshadows mini
+cd ../web && npm install && npm run dev
+```
+
+The city switcher is built from `web/static/data/cities.json`, which the pipeline writes from the artifacts.
+
+Deployment is to a GitHub Pages subpath. Serve the built site from a subdirectory instead:
+
+```sh
+npm run build
+mkdir -p /tmp/pages/TenShadows && cp -r build/* /tmp/pages/TenShadows/
+python3 -m http.server 8000 --directory /tmp/pages   # open /TenShadows/
 ```
 
 ## Development
