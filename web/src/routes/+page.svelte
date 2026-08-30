@@ -2,26 +2,29 @@
   import { onMount } from "svelte";
   import { base } from "$app/paths";
   import CityMap from "../components/Map.svelte";
+  import ShadeSlider from "../components/ShadeSlider.svelte";
   import TimeSlider from "../components/TimeSlider.svelte";
-  import { loadCity, loadManifest } from "$lib/load.js";
+  import { sunExposure, walked, weights } from "$lib/cost.js";
+  import { loadCity, loadManifest, nodePoints, routeGeoJSON } from "$lib/load.js";
+  import { astar, buildGraph, flatten, nearestNode, scratch } from "$lib/router.js";
   import { isNight, sunPosition } from "$lib/solar.js";
+  import { app } from "$lib/stores.svelte.js";
 
   let cities = $state([]);
   let key = $state(null);
-  let city = $state(null);
   let error = $state(null);
   let busy = $state(false);
 
-  // Snapped to the slider's own step, so the control and the clock beside it
-  // agree from the first paint. Every IANA offset is a whole quarter hour, so
-  // a multiple of five minutes survives the trip into any city's zone.
-  const STEP_MS = 5 * 60 * 1000;
-  let when = $state(new Date(Math.round(Date.now() / STEP_MS) * STEP_MS));
-  let shade = $state(null);
+  // $state.raw, not $state. A loaded city is megabytes of typed arrays and the
+  // plain objects holding them, replaced wholesale and never mutated in place,
+  // so deep-proxying it costs on every read and buys nothing. It also breaks
+  // the worker outright: `samples` is a plain object, a proxy of one cannot be
+  // structured-cloned, and postMessage throws "could not be cloned".
+  let city = $state.raw(null);
 
   const tz = $derived(city?.meta.timezone ?? "UTC");
   const sun = $derived(
-    city ? sunPosition(when, city.meta.center[1], city.meta.center[0]) : null,
+    city ? sunPosition(app.when, city.meta.center[1], city.meta.center[0]) : null,
   );
 
   // The shade tier of roadmap Section 1.2, driven from here. Only one pass is
@@ -58,7 +61,7 @@
     if (data.seq === seq) {
       let total = 0;
       for (const v of data.sigma) total += v;
-      shade = { sigma: data.sigma, ms: data.ms, mean: total / data.sigma.length };
+      app.shade = { sigma: data.sigma, ms: data.ms, mean: total / data.sigma.length };
     }
     if (again) {
       again = false;
@@ -85,7 +88,7 @@
     // as stale rather than as this city's answer.
     seeded = false;
     seq += 1;
-    shade = null;
+    app.shade = null;
     running = false;
     again = false;
     const { height, polygonOffset, ringOffset, x, y } = city.buildings;
@@ -98,6 +101,73 @@
     sun;
     send();
   });
+
+  // The cost tier. Built once per city, then reused: the weights array and the
+  // search scratch are allocated here so that a slider move writes into them
+  // rather than allocating a city's worth of memory per frame.
+  //
+  // $state.raw, and not a plain variable: the search below has to re-run when
+  // this appears, and it would not be told about a variable. Raw because the
+  // value is a bag of typed arrays replaced wholesale, and deep-proxying it
+  // would buy nothing and cost on every read.
+  let routing = $state.raw(null);
+
+  $effect(() => {
+    if (!city) {
+      routing = null;
+      return;
+    }
+    const view = flatten(buildGraph(city.graph));
+    routing = {
+      view,
+      work: scratch(view),
+      cost: new Float32Array(city.graph.u.length),
+    };
+    app.from = null;
+    app.to = null;
+    app.route = null;
+  });
+
+  function pick(lon, lat) {
+    if (!city) return;
+    const [px, py] = city.frame.forward(lon, lat);
+    const node = nearestNode(city.graph.x, city.graph.y, px, py);
+    if (app.from === null || app.to !== null) {
+      app.from = node;
+      app.to = null;
+    } else {
+      app.to = node;
+    }
+  }
+
+  // Section 6.2's closing note, made structural: this reads sigma but never
+  // asks for it again, so moving the shade slider re-weights and re-searches
+  // without waking the worker.
+  $effect(() => {
+    const { shade, w, from, to } = app;
+    if (!routing || !shade || from === null || to === null || from === to) {
+      app.route = null;
+      return;
+    }
+
+    const started = performance.now();
+    weights(city.graph.length, shade.sigma, w, routing.cost);
+    const found = astar(routing.view, routing.cost, city.graph.x, city.graph.y, from, to, routing.work);
+    const elapsed = performance.now() - started;
+
+    app.route = found && {
+      edges: found.edges,
+      nodes: found.nodes,
+      metres: walked(found.edges, city.graph.length),
+      sun: sunExposure(found.edges, city.graph.length, shade.sigma),
+      ms: elapsed,
+    };
+  });
+
+  const routeLine = $derived(app.route ? routeGeoJSON(city.graph, app.route.edges) : null);
+  const endPoints = $derived(
+    city ? nodePoints(city.graph, [app.from, app.to].filter((n) => n !== null)) : null,
+  );
 
   onMount(async () => {
     try {
@@ -125,7 +195,7 @@
   const ms = (value) => `${value.toFixed(0)} ms`;
 </script>
 
-<CityMap {city} />
+<CityMap {city} route={routeLine} ends={endPoints} onpick={pick} />
 
 <aside>
   <h1>DraCool</h1>
@@ -143,7 +213,8 @@
   {:else if busy || !city}
     <p>Loading…</p>
   {:else}
-    <TimeSlider {tz} bind:when />
+    <TimeSlider {tz} bind:when={app.when} />
+    <ShadeSlider bind:w={app.w} />
 
     <dl>
       <dt>altitude</dt>
@@ -151,9 +222,39 @@
       <dt>azimuth</dt>
       <dd>{sun.azi.toFixed(1)}°</dd>
       <dt>shade</dt>
-      <dd>{shade ? `${(shade.mean * 100).toFixed(1)}%` : "…"}</dd>
+      <dd>{app.shade ? `${(app.shade.mean * 100).toFixed(1)}%` : "…"}</dd>
       <dt>σ pass</dt>
-      <dd>{shade ? ms(shade.ms) : "…"}</dd>
+      <dd>{app.shade ? ms(app.shade.ms) : "…"}</dd>
+    </dl>
+
+    <!-- RouteSummary.svelte in Phase 9 turns these into something readable,
+         with the detour against the w = 0 route beside them. Sun exposure is
+         here now because Section 6.1 calls it the number that means something
+         whatever w is set to. -->
+    <dl>
+      {#if app.route}
+        <dt>walk</dt>
+        <dd>{(app.route.metres / 1000).toFixed(2)} km</dd>
+        <dt>in sun</dt>
+        <dd>{(app.route.sun / 1000).toFixed(2)} km</dd>
+        <dt>route</dt>
+        <dd>{ms(app.route.ms)}</dd>
+      {:else}
+        <dt>route</dt>
+        <dd>
+          {#if app.from === null}
+            click a start
+          {:else if app.to === null}
+            click a finish
+          {:else if !app.shade}
+            waiting on shade
+          {:else if app.from === app.to}
+            same node
+          {:else}
+            no path
+          {/if}
+        </dd>
+      {/if}
     </dl>
 
     <!-- Definition 1: below the horizon sigma is 1 everywhere by convention,

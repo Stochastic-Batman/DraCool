@@ -9,7 +9,7 @@
   // top so it becomes its own chunk: the panel, the time control and the
   // error path do not wait on the renderer to paint.
 
-  let { city } = $props();
+  let { city, route = null, ends = null, onpick = null } = $props();
 
   // MapLibre finds its worker with new URL("./maplibre-gl-worker.mjs",
   // import.meta.url), and builds that filename from a template literal. No
@@ -30,9 +30,16 @@
     layers: [{ id: "ground", type: "background", paint: { "background-color": "#f4f2ee" } }],
   };
 
+  // A GeoJSON source needs data from the moment it is added, and an empty
+  // collection is the one shape that suits both a line and a point layer.
+  const EMPTY = { type: "FeatureCollection", features: [] };
+
   let container;
   let map = null;
   let ready = $state(false);
+  // Raised once the sources exist, which is what the route effect below waits
+  // on. `ready` only says the style loaded, and the city can arrive after it.
+  let drawn = $state(false);
 
   // Fetched here rather than handed to MapLibre as a URL. If the style cannot
   // be reached the map never fires `load`, and the city would never be drawn
@@ -56,6 +63,7 @@
     map = new MapLibre({ container, style: await basemapStyle(), center: [0, 0], zoom: 1 });
     map.addControl(new NavigationControl(), "top-right");
     map.on("error", (event) => console.warn("maplibre:", event.error?.message ?? event));
+    map.on("click", (event) => onpick?.(event.lngLat.lng, event.lngLat.lat));
     // `load` fires once. Latching it beats asking isStyleLoaded() later, which
     // answers false while a source is still resolving and leaves nothing to
     // wait for if the event has already gone.
@@ -113,12 +121,56 @@
       });
     }
 
+    // Empty to begin with; the route effect below fills them. They are added
+    // here so they sit above the city layers whatever order things arrive in.
+    for (const id of ["route", "ends"]) {
+      if (!instance.getSource(id)) instance.addSource(id, { type: "geojson", data: EMPTY });
+    }
+
+    if (!instance.getLayer("route")) {
+      instance.addLayer({
+        id: "route",
+        type: "line",
+        source: "route",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#1d4ed8", "line-width": 4, "line-opacity": 0.85 },
+      });
+      instance.addLayer({
+        id: "ends",
+        type: "circle",
+        source: "ends",
+        paint: {
+          "circle-radius": 5,
+          "circle-color": "#1d4ed8",
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+    }
+
     const [west, south, east, north] = loaded.meta.bbox;
     instance.fitBounds([west, south, east, north], { padding: 24, animate: false });
+    drawn = true;
   }
 
   $effect(() => {
     if (ready && city) draw(map, city);
+  });
+
+  // Separate from draw() so that a new route re-draws two small sources and
+  // nothing else: the city layers stay as they are, and the view is not
+  // re-fitted out from under someone who has panned.
+  //
+  // Both props are read before anything can return early. An effect only
+  // subscribes to what it actually reads, so guarding first would leave it
+  // subscribed to `drawn` alone on the pass where the sources do not exist
+  // yet, and it would then never hear about a route again.
+  $effect(() => {
+    const line = route ?? EMPTY;
+    const points = ends ?? EMPTY;
+    if (!drawn) return;
+    map.getSource("route").setData(line);
+    map.getSource("ends").setData(points);
   });
 </script>
 

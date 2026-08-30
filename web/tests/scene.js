@@ -52,6 +52,67 @@ export function buildingsOf(golden) {
   return { height, polygonOffset, ringOffset, x, y };
 }
 
+// The same edges as a routable graph. The golden ships no node table, but its
+// polylines are real streets cut from one, so endpoints that were shared are
+// still identical at the file's millimetre rounding and snapping them back
+// together recovers the original graph. l(e) is the polyline's own length,
+// which is what the pipeline ships as `len` for a real city.
+export function streetsOf(golden) {
+  const n = golden.edges.length;
+  const id = new Map();
+  const xs = [];
+  const ys = [];
+
+  const node = ([x, y]) => {
+    const key = `${x},${y}`;
+    if (!id.has(key)) {
+      id.set(key, xs.length);
+      xs.push(x);
+      ys.push(y);
+    }
+    return id.get(key);
+  };
+
+  const u = new Int32Array(n);
+  const v = new Int32Array(n);
+  const length = new Float32Array(n);
+  const interiorOffset = new Int32Array(n + 1);
+  const interiorX = new Float64Array(golden.edges.reduce((t, e) => t + e.polyline.length - 2, 0));
+  const interiorY = new Float64Array(interiorX.length);
+
+  let at = 0;
+  golden.edges.forEach((e, i) => {
+    const line = e.polyline;
+    u[i] = node(line[0]);
+    v[i] = node(line[line.length - 1]);
+
+    let L = 0;
+    for (let k = 1; k < line.length; k += 1) {
+      L += Math.hypot(line[k][0] - line[k - 1][0], line[k][1] - line[k - 1][1]);
+    }
+    length[i] = L;
+
+    interiorOffset[i] = at;
+    for (let k = 1; k < line.length - 1; k += 1) {
+      interiorX[at] = line[k][0];
+      interiorY[at] = line[k][1];
+      at += 1;
+    }
+  });
+  interiorOffset[n] = at;
+
+  return {
+    u,
+    v,
+    x: Float64Array.from(xs),
+    y: Float64Array.from(ys),
+    length,
+    interiorOffset,
+    interiorX,
+    interiorY,
+  };
+}
+
 // Endpoints become nodes and the rest interior points, which is how graph.json
 // splits a polyline. Nodes are not shared between edges here; sampling does
 // not care, and the golden gives no node table to reconstruct.

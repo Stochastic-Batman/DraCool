@@ -51,20 +51,34 @@ function decodeGraph(raw, frame) {
   };
 }
 
+// An edge as the client rebuilds it: node u, the interior points, node v.
+function edgeLine(graph, e) {
+  const line = [[graph.lon[graph.u[e]], graph.lat[graph.u[e]]]];
+  for (let i = graph.interiorOffset[e]; i < graph.interiorOffset[e + 1]; i += 1) {
+    line.push([graph.interiorLon[i], graph.interiorLat[i]]);
+  }
+  line.push([graph.lon[graph.v[e]], graph.lat[graph.v[e]]]);
+  return line;
+}
+
 // One MultiLineString rather than a feature per edge: the map draws all of
 // them the same way at this stage, and 119k features would be paid for twice,
 // once in the allocation and once in the tiling.
 export function streetGeoJSON(graph) {
   const lines = [];
-  for (let e = 0; e < graph.u.length; e += 1) {
-    const line = [[graph.lon[graph.u[e]], graph.lat[graph.u[e]]]];
-    for (let i = graph.interiorOffset[e]; i < graph.interiorOffset[e + 1]; i += 1) {
-      line.push([graph.interiorLon[i], graph.interiorLat[i]]);
-    }
-    line.push([graph.lon[graph.v[e]], graph.lat[graph.v[e]]]);
-    lines.push(line);
-  }
+  for (let e = 0; e < graph.u.length; e += 1) lines.push(edgeLine(graph, e));
   return { type: "MultiLineString", coordinates: lines };
+}
+
+export function routeGeoJSON(graph, edges) {
+  return { type: "MultiLineString", coordinates: edges.map((e) => edgeLine(graph, e)) };
+}
+
+export function nodePoints(graph, nodes) {
+  return {
+    type: "MultiPoint",
+    coordinates: nodes.map((n) => [graph.lon[n], graph.lat[n]]),
+  };
 }
 
 // Footprints flattened into CSR: polygon -> its rings -> their vertices, in
