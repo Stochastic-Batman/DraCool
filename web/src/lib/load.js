@@ -1,4 +1,5 @@
 import { localFrame } from "./project.js";
+import { samplePoints } from "./shade.js";
 
 
 // The geometry tier of roadmap Section 1.2: everything here depends on the
@@ -131,6 +132,12 @@ export async function loadCity(fetchFn, key, base = "") {
   const decoded = performance.now();
 
   const streets = streetGeoJSON(graph);
+  const drawn = performance.now();
+
+  // Sample points close out the geometry tier: they depend on the edge
+  // geometry and Delta, not on the sun and not on w, so every later shade pass
+  // reuses them.
+  const samples = samplePoints(graph);
   const finished = performance.now();
 
   return {
@@ -139,10 +146,12 @@ export async function loadCity(fetchFn, key, base = "") {
     graph,
     buildings,
     streets,
+    samples,
     timings: {
       fetch: fetched - started,
       decode: decoded - fetched,
-      draw: finished - decoded,
+      draw: drawn - decoded,
+      sample: finished - drawn,
       total: finished - started,
     },
   };

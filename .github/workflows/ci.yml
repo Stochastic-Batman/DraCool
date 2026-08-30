@@ -46,4 +46,6 @@ jobs:
       # ci rather than install, so the lockfile is what gets built.
       - run: npm ci
 
+      - run: npm test
+
       - run: npm run build

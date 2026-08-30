@@ -34,11 +34,11 @@ Shadow fractions are computed in the browser rather than baked into the artifact
 
 ## Status
 
-Early. The data pipeline is under construction and there is no client yet.
+The pipeline is complete and the client computes shade. Routing is next.
 
 ```
 pipeline/    Python data engine
-web/         Svelte client (not yet started)
+web/         Svelte client
 shared/      constants used by both, defined once
 docs/        the specification
 ```
@@ -62,6 +62,8 @@ cd pipeline && uv run dracool mini
 cd ../web && npm install && npm run dev
 ```
 
+The date and time control drive the sun; the panel reports the solar altitude and azimuth, the mean shadow fraction over the network, and how long the pass took. Time is read in the city's own zone, which `meta.json` carries as an IANA name. Below the horizon `sigma` is 1 everywhere by convention and the panel says so, because that number is not a shade measurement.
+
 The city switcher is built from `web/static/data/cities.json`, which the pipeline writes from the artifacts.
 
 Deployment is to a GitHub Pages subpath. Serve the built site from a subdirectory instead:
@@ -83,14 +85,22 @@ uv run ruff format .         # format
 uv run pytest
 ```
 
+Frontend tests:
+
+```sh
+cd web && npm test
+```
+
+`suncalc` is pinned to the 1.x line on purpose: `suncalc-py` is a port of it, and they agree to 5e-10 degrees. Version 2 rewrote the series and disagrees by up to a degree of azimuth, which would rotate every shadow in the city.
+
 Examples of some commands:
 
 ```sh
-uv run dracool cities              # list the defined cities
-uv run dracool build --city porto  # fetch one city, write its artifacts
-uv run dracool build --all         # every defined city
-uv run dracool fixture             # rebuild the offline test extract from OSM
-uv run dracool reference           # regenerate the cross-language values
+uv run dracool cities                # list the defined cities
+uv run dracool build --city tbilisi  # fetch one city, write its artifacts
+uv run dracool build --all           # every defined city
+uv run dracool fixture               # rebuild the offline test extract from OSM
+uv run dracool reference             # regenerate the cross-language values
 ```
 
 `build` writes `meta.json`, `buildings.geojson` and `graph.json` into `web/static/data/<city>/`. Those are generated, not committed: the whole of Tbilisi is about 7 MB gzipped, and it is cheaper to rebuild than to carry in the history.
@@ -112,6 +122,7 @@ Drop a TOML file into `pipeline/cities/`. No code changes, anywhere.
 # pipeline/cities/porto.toml
 display_name = "Porto"
 osm_query = "Porto, Portugal"
+timezone = "Europe/Lisbon"
 
 [center]
 lon = -8.6110
@@ -119,6 +130,8 @@ lat = 41.1496
 ```
 
 The filename stem is the city key, so this becomes `dracool build --city porto` and exports to `web/static/data/porto/`. The UTM zone is derived from the centre; state it as `[crs] expected_utm_epsg` if you want it asserted rather than inferred.
+
+`timezone` is an IANA name and is required. The client's clock reads local time and the solar oracle takes UTC, so the conversion needs the real zone with its DST; an offset guessed from the longitude would be an hour wrong for half the year.
 
 Bear in mind that the type-based building heights in `shared/constants.json` are calibrated for European building stock. Somewhere with a very different housing profile may want those numbers changed.
 

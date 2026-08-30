@@ -108,6 +108,7 @@ def meta_payload(
         "center": [round(city.center_lon, COORD_DECIMALS), round(city.center_lat, COORD_DECIMALS)],
         "bbox": [round(value, COORD_DECIMALS) for value in bbox],
         "utm_epsg": utm_epsg,
+        "timezone": city.timezone,
         "counts": {
             "nodes": streets.node_count,
             "edges": streets.edge_count,

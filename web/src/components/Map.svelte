@@ -1,9 +1,13 @@
 <script>
   import { onDestroy, onMount } from "svelte";
-  import { config, Map as MapLibre, NavigationControl } from "maplibre-gl";
   import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
   import "maplibre-gl/dist/maplibre-gl.css";
   import { BASEMAP } from "$lib/constants.js";
+
+  // MapLibre is a quarter of a megabyte gzipped, and nothing can be drawn
+  // until the city data has arrived anyway. Imported here rather than at the
+  // top so it becomes its own chunk: the panel, the time control and the
+  // error path do not wait on the renderer to paint.
 
   let { city } = $props();
 
@@ -14,7 +18,7 @@
   // looks exactly like a map that draws nothing. `?worker&url` builds it as a
   // worker entry point and hands back where Vite put it. Not plain `?url`:
   // that copies one file, and the worker imports maplibre-gl-shared.mjs.
-  config.WORKER_URL = workerUrl;
+  // Assigned once the module is in, and before any Map is constructed.
 
   // Drawn on a flat ground when there is no basemap, so the client owes no
   // tile provider anything and still renders with no network beyond its own
@@ -46,6 +50,9 @@
   }
 
   onMount(async () => {
+    const { config, Map: MapLibre, NavigationControl } = await import("maplibre-gl");
+    config.WORKER_URL = workerUrl;
+
     map = new MapLibre({ container, style: await basemapStyle(), center: [0, 0], zoom: 1 });
     map.addControl(new NavigationControl(), "top-right");
     map.on("error", (event) => console.warn("maplibre:", event.error?.message ?? event));

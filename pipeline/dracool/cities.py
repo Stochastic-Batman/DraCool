@@ -29,6 +29,11 @@ class City:
     # Query string handed to OSMnx to resolve the city boundary.
     osm_query: str
 
+    # IANA zone name, travelling to the client in meta.json. Stated rather than
+    # derived: the offset is a political fact about a place, not a function of
+    # its longitude, and getting it wrong moves the sun by a whole hour.
+    timezone: str
+
     # Longitude of the ENU projection origin, in degrees east.
     center_lon: float
 
@@ -107,6 +112,7 @@ def load_city_file(path: Path) -> City:
         key=key,
         display_name=str(_require(raw, path, "display_name")),
         osm_query=str(_require(raw, path, "osm_query")),
+        timezone=str(_require(raw, path, "timezone")),
         center_lon=lon,
         center_lat=lat,
         expected_utm_epsg=int(declared) if declared is not None else utm_epsg_for(lon, lat),

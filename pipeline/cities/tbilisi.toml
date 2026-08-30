@@ -2,6 +2,10 @@ display_name = "Tbilisi"
 
 osm_query = "Tbilisi, Georgia"
 
+# IANA zone. The slider reads local wall-clock time; the solar oracle wants
+# UTC, and only a named zone gets the offset and its DST right.
+timezone = "Asia/Tbilisi"
+
 [center]
 lon = 44.8336
 lat = 41.6941

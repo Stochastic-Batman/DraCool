@@ -2,6 +2,10 @@ display_name = "Saarbrücken"
 
 osm_query = "Saarbrücken, Germany"
 
+# IANA zone. The slider reads local wall-clock time; the solar oracle wants
+# UTC, and only a named zone gets the offset and its DST right.
+timezone = "Europe/Berlin"
+
 [center]
 lon = 7.0000 
 lat = 49.2326

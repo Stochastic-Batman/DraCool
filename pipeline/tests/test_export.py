@@ -6,6 +6,7 @@ import json
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import geopandas as gpd
 import pytest
@@ -194,6 +195,12 @@ def test_meta_carries_the_licence_obligation(artifacts: Path) -> None:
     assert "OpenStreetMap" in meta["attribution"]
     assert meta["data_license"] == "ODbL-1.0"
     assert meta["utm_epsg"] == TBILISI.expected_utm_epsg
+
+
+# The slider shows local wall-clock time and the oracle takes UTC, so the zone
+# has to survive the trip to the client as a name a browser can resolve.
+def test_meta_carries_a_resolvable_timezone(artifacts: Path) -> None:
+    assert ZoneInfo(_json(artifacts, "meta.json")["timezone"]) is not None
 
 
 def test_oriented_reverses_only_when_it_has_to() -> None:
