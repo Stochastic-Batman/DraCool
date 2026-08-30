@@ -3,13 +3,14 @@
   import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
   import "maplibre-gl/dist/maplibre-gl.css";
   import { BASEMAP } from "$lib/constants.js";
+  import { SHADE_STEPS } from "$lib/overlay.js";
 
   // MapLibre is a quarter of a megabyte gzipped, and nothing can be drawn
   // until the city data has arrived anyway. Imported here rather than at the
   // top so it becomes its own chunk: the panel, the time control and the
   // error path do not wait on the renderer to paint.
 
-  let { city, route = null, ends = null, onpick = null } = $props();
+  let { city, shade = null, route = null, ends = null, onpick = null } = $props();
 
   // MapLibre finds its worker with new URL("./maplibre-gl-worker.mjs",
   // import.meta.url), and builds that filename from a template literal. No
@@ -119,6 +120,20 @@
         source: "streets",
         paint: { "line-color": "#c2410c", "line-width": 1.2 },
       });
+
+      // One layer per bucket, sitting over the plain network. They start empty
+      // and stay so until the first shade pass lands; until then the neutral
+      // `streets` layer is what shows, because colouring the city before sigma
+      // exists would be asserting a measurement nobody has made.
+      SHADE_STEPS.forEach((step, i) => {
+        instance.addSource(`shade-${i}`, { type: "geojson", data: EMPTY, maxzoom: 14, buffer: 0 });
+        instance.addLayer({
+          id: `shade-${i}`,
+          type: "line",
+          source: `shade-${i}`,
+          paint: { "line-color": step.color, "line-width": step.width },
+        });
+      });
     }
 
     // Empty to begin with; the route effect below fills them. They are added
@@ -128,12 +143,23 @@
     }
 
     if (!instance.getLayer("route")) {
+      // Orange, because blue is spoken for: the overlay uses the whole blue
+      // ramp to mean a quantity, and a route drawn in it would read as another
+      // value on that scale. The casing is the surface ring that keeps the
+      // line legible where it crosses the darkest bands.
+      instance.addLayer({
+        id: "route-casing",
+        type: "line",
+        source: "route",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#ffffff", "line-width": 7, "line-opacity": 0.9 },
+      });
       instance.addLayer({
         id: "route",
         type: "line",
         source: "route",
         layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": "#1d4ed8", "line-width": 4, "line-opacity": 0.85 },
+        paint: { "line-color": "#eb6834", "line-width": 3.5 },
       });
       instance.addLayer({
         id: "ends",
@@ -141,7 +167,7 @@
         source: "ends",
         paint: {
           "circle-radius": 5,
-          "circle-color": "#1d4ed8",
+          "circle-color": "#eb6834",
           "circle-stroke-width": 2,
           "circle-stroke-color": "#ffffff",
         },
@@ -171,6 +197,17 @@
     if (!drawn) return;
     map.getSource("route").setData(line);
     map.getSource("ends").setData(points);
+  });
+
+  // The shade tier reaching the map. The plain network is hidden once there is
+  // a real sigma to draw, and comes back if there is not.
+  $effect(() => {
+    const groups = shade;
+    if (!drawn) return;
+    SHADE_STEPS.forEach((step, i) => {
+      map.getSource(`shade-${i}`).setData(groups ? groups[i] : EMPTY);
+    });
+    map.setLayoutProperty("streets", "visibility", groups ? "none" : "visible");
   });
 </script>
 

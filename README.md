@@ -34,7 +34,7 @@ Shadow fractions are computed in the browser rather than baked into the artifact
 
 ## Status
 
-The pipeline is complete, and the client computes shade and routes on it. Interface and deployment are what is left.
+The pipeline and the client are both complete. Deployment is what is left.
 
 ```
 pipeline/    Python data engine
@@ -64,7 +64,7 @@ cd ../web && npm install && npm run dev
 
 The date and time control drive the sun; the panel reports the solar altitude and azimuth, the mean shadow fraction over the network, and how long the pass took. Time is read in the city's own zone, which `meta.json` carries as an IANA name. Below the horizon `sigma` is 1 everywhere by convention and the panel says so, because that number is not a shade measurement.
 
-Click the map twice to set a start and a finish; a third click starts over. The `w` slider is the exchange rate, and moving it re-routes without recomputing shade, because `sigma` depends on the sun and not on `w`. The panel reports the distance walked and how much of it is in sun, which is the number that means something whatever `w` is set to.
+The network is coloured by `sigma`: one blue ramp, light for sun and dark for shade, with the legend beside it. Click the map twice to set a start and a finish; a third click starts over. The `w` slider is the exchange rate, and moving it re-routes without recomputing shade, because `sigma` depends on the sun and not on `w`. The panel reports the distance walked and how much of it is in sun, which is the number that means something whatever `w` is set to.
 
 The city switcher is built from `web/static/data/cities.json`, which the pipeline writes from the artifacts.
 

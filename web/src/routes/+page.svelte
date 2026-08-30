@@ -1,11 +1,15 @@
 <script>
   import { onMount } from "svelte";
   import { base } from "$app/paths";
+  import DataQuality from "../components/DataQuality.svelte";
   import CityMap from "../components/Map.svelte";
+  import RouteSummary from "../components/RouteSummary.svelte";
   import ShadeSlider from "../components/ShadeSlider.svelte";
+  import SunDial from "../components/SunDial.svelte";
   import TimeSlider from "../components/TimeSlider.svelte";
   import { sunExposure, walked, weights } from "$lib/cost.js";
   import { loadCity, loadManifest, nodePoints, routeGeoJSON } from "$lib/load.js";
+  import { SHADE_STEPS, shadeBuckets } from "$lib/overlay.js";
   import { astar, buildGraph, flatten, nearestNode, scratch } from "$lib/router.js";
   import { isNight, sunPosition } from "$lib/solar.js";
   import { app } from "$lib/stores.svelte.js";
@@ -122,6 +126,7 @@
       view,
       work: scratch(view),
       cost: new Float32Array(city.graph.u.length),
+      base: new Float32Array(city.graph.u.length),
     };
     app.from = null;
     app.to = null;
@@ -150,16 +155,27 @@
       return;
     }
 
+    const { length, x, y } = city.graph;
     const started = performance.now();
-    weights(city.graph.length, shade.sigma, w, routing.cost);
-    const found = astar(routing.view, routing.cost, city.graph.x, city.graph.y, from, to, routing.work);
+
+    weights(length, shade.sigma, w, routing.cost);
+    const found = astar(routing.view, routing.cost, x, y, from, to, routing.work);
+
+    // The same search at w = 0, which is the shortest path by definition. The
+    // detour has to be measured against something, and Section 6.1's reading
+    // of w is a comparison with exactly this route.
+    weights(length, shade.sigma, 0, routing.base);
+    const plain = astar(routing.view, routing.base, x, y, from, to, routing.work);
+
     const elapsed = performance.now() - started;
 
     app.route = found && {
       edges: found.edges,
       nodes: found.nodes,
-      metres: walked(found.edges, city.graph.length),
-      sun: sunExposure(found.edges, city.graph.length, shade.sigma),
+      metres: walked(found.edges, length),
+      sun: sunExposure(found.edges, length, shade.sigma),
+      baseMetres: walked(plain.edges, length),
+      baseSun: sunExposure(plain.edges, length, shade.sigma),
       ms: elapsed,
     };
   });
@@ -167,6 +183,12 @@
   const routeLine = $derived(app.route ? routeGeoJSON(city.graph, app.route.edges) : null);
   const endPoints = $derived(
     city ? nodePoints(city.graph, [app.from, app.to].filter((n) => n !== null)) : null,
+  );
+
+  // Re-sorts pointers into the coordinate arrays built at load; it copies no
+  // geometry, so it rides along with each shade pass rather than costing one.
+  const shadeLines = $derived(
+    city && app.shade ? shadeBuckets(city.streets.coordinates, app.shade.sigma) : null,
   );
 
   onMount(async () => {
@@ -195,7 +217,7 @@
   const ms = (value) => `${value.toFixed(0)} ms`;
 </script>
 
-<CityMap {city} route={routeLine} ends={endPoints} onpick={pick} />
+<CityMap {city} shade={shadeLines} route={routeLine} ends={endPoints} onpick={pick} />
 
 <aside>
   <h1>DraCool</h1>
@@ -214,81 +236,68 @@
     <p>Loading…</p>
   {:else}
     <TimeSlider {tz} bind:when={app.when} />
+    <SunDial {sun} />
+
+    <hr />
+
     <ShadeSlider bind:w={app.w} />
 
-    <dl>
-      <dt>altitude</dt>
-      <dd>{sun.alt.toFixed(1)}°</dd>
-      <dt>azimuth</dt>
-      <dd>{sun.azi.toFixed(1)}°</dd>
-      <dt>shade</dt>
-      <dd>{app.shade ? `${(app.shade.mean * 100).toFixed(1)}%` : "…"}</dd>
-      <dt>σ pass</dt>
-      <dd>{app.shade ? ms(app.shade.ms) : "…"}</dd>
-    </dl>
-
-    <!-- RouteSummary.svelte in Phase 9 turns these into something readable,
-         with the detour against the w = 0 route beside them. Sun exposure is
-         here now because Section 6.1 calls it the number that means something
-         whatever w is set to. -->
-    <dl>
-      {#if app.route}
-        <dt>walk</dt>
-        <dd>{(app.route.metres / 1000).toFixed(2)} km</dd>
-        <dt>in sun</dt>
-        <dd>{(app.route.sun / 1000).toFixed(2)} km</dd>
-        <dt>route</dt>
-        <dd>{ms(app.route.ms)}</dd>
-      {:else}
-        <dt>route</dt>
-        <dd>
-          {#if app.from === null}
-            click a start
-          {:else if app.to === null}
-            click a finish
-          {:else if !app.shade}
-            waiting on shade
-          {:else if app.from === app.to}
-            same node
-          {:else}
-            no path
-          {/if}
-        </dd>
-      {/if}
-    </dl>
-
-    <!-- Definition 1: below the horizon sigma is 1 everywhere by convention,
-         so the number above is not a shade measurement and should not be read
-         as one. Section 6.1's degenerate case, said out loud. -->
-    {#if isNight(sun)}
-      <p class="night">The sun is down. σ = 1 everywhere by convention.</p>
+    {#if app.route}
+      <RouteSummary route={app.route} night={isNight(sun)} />
+    {:else}
+      <p class="note">
+        {#if app.from === null}
+          Click the map to set a start.
+        {:else if app.to === null}
+          Click again to set a finish.
+        {:else if !app.shade}
+          Waiting on the first shade pass.
+        {:else if app.from === app.to}
+          Both ends snapped to the same junction.
+        {:else}
+          No path between those points.
+        {/if}
+      </p>
     {/if}
 
+    <hr />
+
+    <h2>Shade</h2>
+    <!-- A legend, because the overlay carries its meaning in colour and a
+         reader who cannot recover the scale is looking at decoration. -->
+    <div class="ramp">
+      {#each SHADE_STEPS as step (step.color)}
+        <span style:background={step.color} style:height="{3 + step.width * 2}px"></span>
+      {/each}
+    </div>
+    <div class="ends"><span>all sun</span><span>all shade</span></div>
+
     <dl>
-      <dt>nodes</dt>
-      <dd>{city.meta.counts.nodes.toLocaleString()}</dd>
-      <dt>edges</dt>
-      <dd>{city.meta.counts.edges.toLocaleString()}</dd>
-      <dt>buildings</dt>
-      <dd>{city.meta.counts.buildings.toLocaleString()}</dd>
-      <dt>fetch</dt>
-      <dd>{ms(city.timings.fetch)}</dd>
-      <dt>decode</dt>
-      <dd>{ms(city.timings.decode)}</dd>
-      <dt>polylines</dt>
-      <dd>{ms(city.timings.draw)}</dd>
-      <dt>samples</dt>
-      <dd>{ms(city.timings.sample)}</dd>
-      <dt>total</dt>
-      <dd>{ms(city.timings.total)}</dd>
+      <dt>network in shade</dt>
+      <dd>{app.shade ? `${(app.shade.mean * 100).toFixed(1)}%` : "…"}</dd>
     </dl>
 
-    <!-- Section 7 of the specification calls sparse heights the dominant error
-         source in the system. This is a placeholder for DataQuality.svelte:
-         the number is here from the first render rather than added later. -->
-    <p class="quality">
-      {(city.meta.height_provenance.default * 100).toFixed(0)}% of heights are a flat default.
-    </p>
+    <hr />
+
+    <DataQuality provenance={city.meta.height_provenance} />
+
+    <details>
+      <summary>Timings</summary>
+      <dl>
+        <dt>nodes</dt>
+        <dd>{city.meta.counts.nodes.toLocaleString()}</dd>
+        <dt>edges</dt>
+        <dd>{city.meta.counts.edges.toLocaleString()}</dd>
+        <dt>buildings</dt>
+        <dd>{city.meta.counts.buildings.toLocaleString()}</dd>
+        <dt>load</dt>
+        <dd>{ms(city.timings.total)}</dd>
+        <dt>σ pass</dt>
+        <dd>{app.shade ? ms(app.shade.ms) : "…"}</dd>
+        <dt>route</dt>
+        <dd>{app.route ? ms(app.route.ms) : "…"}</dd>
+      </dl>
+    </details>
   {/if}
 </aside>
 
@@ -303,7 +312,9 @@
     z-index: 1;
     top: 12px;
     left: 12px;
-    width: 200px;
+    width: 232px;
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
     padding: 12px 14px;
     border-radius: 6px;
     background: rgb(255 255 255 / 0.92);
@@ -333,20 +344,51 @@
     font-variant-numeric: tabular-nums;
   }
 
-  dl + dl {
-    margin-top: 8px;
-    padding-top: 8px;
+  h2 {
+    margin: 0 0 4px;
+    font-size: 13px;
+  }
+
+  hr {
+    height: 0;
+    margin: 10px 0;
+    border: 0;
     border-top: 1px solid #e3e0da;
   }
 
-  .quality {
-    margin: 8px 0 0;
-    color: #6b5c3a;
+  /* The swatches thicken with the ramp, because the map encodes shade in
+     width as well as colour and a legend has to show both. */
+  .ramp {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 9px;
   }
 
-  .night {
-    margin: 8px 0 0;
-    color: #3f4a63;
+  .ramp span {
+    flex: 1;
+    border-radius: 1px;
+  }
+
+  .ends {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    color: #6b6a66;
+  }
+
+  .note {
+    margin: 6px 0 0;
+    color: #52514e;
+  }
+
+  details {
+    margin-top: 10px;
+    color: #6b6a66;
+  }
+
+  summary {
+    cursor: pointer;
   }
 
   .error {
