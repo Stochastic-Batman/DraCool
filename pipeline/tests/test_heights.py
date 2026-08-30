@@ -6,9 +6,9 @@ import math
 
 import pytest
 
-from tenshadows.constants import CONSTANTS
-from tenshadows.fetch import load_fixture_buildings
-from tenshadows.heights import (
+from dracool.constants import CONSTANTS
+from dracool.fetch import load_fixture_buildings
+from dracool.heights import (
     HeightSource,
     parse_height,
     parse_levels,

@@ -15,7 +15,7 @@
       cities = await loadManifest(fetch, base);
       if (cities.length > 0) await select(cities[0].city);
     } catch (cause) {
-      error = `${cause.message}. Run \`uv run tenshadows mini\` in pipeline/ first.`;
+      error = `${cause.message}. Run \`uv run dracool mini\` in pipeline/ first.`;
     }
   });
 
@@ -39,7 +39,7 @@
 <CityMap {city} />
 
 <aside>
-  <h1>TenShadows</h1>
+  <h1>DraCool</h1>
 
   {#if cities.length > 1}
     <select value={key} onchange={(event) => select(event.currentTarget.value)}>

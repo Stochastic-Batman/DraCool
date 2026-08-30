@@ -7,7 +7,7 @@ import geopandas as gpd
 import networkx as nx
 import osmnx as ox
 
-from tenshadows.cities import City
+from dracool.cities import City
 
 
 CACHE_DIR: Final[Path] = Path(__file__).resolve().parents[1] / ".cache"

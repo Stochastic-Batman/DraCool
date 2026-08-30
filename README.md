@@ -1,22 +1,20 @@
-# TenShadows
+# DraCool
 
 Shadow-aware pedestrian routing. 
 
-`TenShadows` finds walking routes optimised for shade rather than for distance, by attaching to every street segment a number between 0 and 1 describing how much of that segment currently lies in the shadow of a building, and then letting you trade distance against sun exposure.
-
-The project is named after the **Ten Shadows Technique** from the *Jujutsu Kaisen* anime/manga, used by Megumi Fushiguro (known as "Mr. Potential Man" for having the potential to match Satoru Gojo but never doing anything meaningful), who manipulates and travels through shadows.
+`DraCool` finds walking routes optimised for shade rather than for distance, by attaching to every street segment a number between 0 and 1 describing how much of that segment currently lies in the shadow of a building, and then letting you trade distance against sun exposure.
 
 
 ## Why
 
-Direct sunlight and high heat make walking unpleasant, but I love walking. Other map applications optimise for the shortest or fastest path and will happily send you down a completely unshaded street (well, that is still helpful most of the time!). `TenShadows` re-weights the pedestrian road network using the sun's position and 3D building geometry, so that a slightly longer route through shade beats a short one in full sun.
+Direct sunlight and high heat make walking unpleasant, but I love walking. Other map applications optimise for the shortest or fastest path and will happily send you down a completely unshaded street (well, that is still helpful most of the time!). `DraCool` re-weights the pedestrian road network using the sun's position and 3D building geometry, so that a slightly longer route through shade beats a short one in full sun.
 
 How much longer is up to you. A shade-preference slider `w` sets the exchange rate: the router will accept a route up to `(1 + w)` times as long if it stays fully in shade. At `w = 0` you get an ordinary shortest path.
 
 
 ## The maths
 
-All of it is derived from scratch in **[docs/TenShadows.pdf](docs/TenShadows.pdf)** - solar position, the shadow calculation per building, the shadow fraction of a street segment, the edge cost function, and a proof that straight-line distance remains an admissible A\* heuristic under it.
+All of it is derived from scratch in **[docs/DraCool.pdf](docs/DraCool.pdf)** - solar position, the shadow calculation per building, the shadow fraction of a street segment, the edge cost function, and a proof that straight-line distance remains an admissible A\* heuristic under it.
 
 That document is the specification. Where the code and the document disagree (in case of logical bugs), the document is right and the code is wrong.
 
@@ -60,7 +58,7 @@ uv run pytest
 The Svelte client lives in `web/` and reads whatever the pipeline has put in `web/static/data/`. 
 
 ```sh
-cd pipeline && uv run tenshadows mini
+cd pipeline && uv run dracool mini
 cd ../web && npm install && npm run dev
 ```
 
@@ -70,8 +68,8 @@ Deployment is to a GitHub Pages subpath. Serve the built site from a subdirector
 
 ```sh
 npm run build
-mkdir -p /tmp/pages/TenShadows && cp -r build/* /tmp/pages/TenShadows/
-python3 -m http.server 8000 --directory /tmp/pages   # open /TenShadows/
+mkdir -p /tmp/pages/DraCool && cp -r build/* /tmp/pages/DraCool/
+python3 -m http.server 8000 --directory /tmp/pages   # open /DraCool/
 ```
 
 ## Development
@@ -88,11 +86,11 @@ uv run pytest
 Examples of some commands:
 
 ```sh
-uv run tenshadows cities              # list the defined cities
-uv run tenshadows build --city porto  # fetch one city, write its artifacts
-uv run tenshadows build --all         # every defined city
-uv run tenshadows fixture             # rebuild the offline test extract from OSM
-uv run tenshadows reference           # regenerate the cross-language values
+uv run dracool cities              # list the defined cities
+uv run dracool build --city porto  # fetch one city, write its artifacts
+uv run dracool build --all         # every defined city
+uv run dracool fixture             # rebuild the offline test extract from OSM
+uv run dracool reference           # regenerate the cross-language values
 ```
 
 `build` writes `meta.json`, `buildings.geojson` and `graph.json` into `web/static/data/<city>/`. Those are generated, not committed: the whole of Tbilisi is about 7 MB gzipped, and it is cheaper to rebuild than to carry in the history.
@@ -102,7 +100,7 @@ uv run tenshadows reference           # regenerate the cross-language values
 `fixtures/reference/` records what the pipeline answers for a fixed set of inputs. The browser implements the same maths, so its test suite asserts against that file and the two cannot drift apart unnoticed. The inputs are pinned rather than sampled: two implementations can only be compared if both are asked the same question, and a fixed set of questions means any diff in the file is a real change in behaviour. Regenerate after changing anything it covers, and read the diff:
 
 ```sh
-uv run python -m tenshadows.reference
+uv run python -m dracool.reference
 ```
 
 
@@ -120,7 +118,7 @@ lon = -8.6110
 lat = 41.1496
 ```
 
-The filename stem is the city key, so this becomes `tenshadows build --city porto` and exports to `web/static/data/porto/`. The UTM zone is derived from the centre; state it as `[crs] expected_utm_epsg` if you want it asserted rather than inferred.
+The filename stem is the city key, so this becomes `dracool build --city porto` and exports to `web/static/data/porto/`. The UTM zone is derived from the centre; state it as `[crs] expected_utm_epsg` if you want it asserted rather than inferred.
 
 Bear in mind that the type-based building heights in `shared/constants.json` are calibrated for European building stock. Somewhere with a very different housing profile may want those numbers changed.
 
@@ -144,4 +142,4 @@ These are deliberate simplifications, documented in Section 7 of the specificati
 - Only buildings cast shadows. Trees are ignored, and on residential streets trees are very often the dominant source of shade.
 - Buildings are opaque flat-roofed prisms of a single height.
 - Only direct sunlight is modelled.
-- **Building heights come from OSM tags that are sparse.** A fraction of a percent of buildings carry an explicit `height` tag and only a minority carry `building:levels`, so most heights are a type-based default. This is the dominant error source in the whole system, and the client reports it rather than hiding it. Figures are not quoted here because they drift as the map is edited and depend strongly on the boundary measured - over Saarbrücken, `building:levels` covers 29% within the city limits but 13% across the surrounding bounding box. Run `tenshadows build --city <key>` for your own city's numbers.
+- **Building heights come from OSM tags that are sparse.** A fraction of a percent of buildings carry an explicit `height` tag and only a minority carry `building:levels`, so most heights are a type-based default. This is the dominant error source in the whole system, and the client reports it rather than hiding it. Figures are not quoted here because they drift as the map is edited and depend strongly on the boundary measured - over Saarbrücken, `building:levels` covers 29% within the city limits but 13% across the surrounding bounding box. Run `dracool build --city <key>` for your own city's numbers.

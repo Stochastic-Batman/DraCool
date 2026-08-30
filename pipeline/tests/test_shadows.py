@@ -10,20 +10,20 @@ import pytest
 import shapely
 from shapely.geometry import MultiPoint, Polygon
 
-from tenshadows.cities import get_city
-from tenshadows.constants import CONSTANTS
-from tenshadows.crs import to_utm
-from tenshadows.fetch import load_fixture_buildings
-from tenshadows.heights import resolve_frame
-from tenshadows.reference import REFERENCE_DIR, shadow_cases
-from tenshadows.shadows import (
+from dracool.cities import get_city
+from dracool.constants import CONSTANTS
+from dracool.crs import to_utm
+from dracool.fetch import load_fixture_buildings
+from dracool.heights import resolve_frame
+from dracool.reference import REFERENCE_DIR, shadow_cases
+from dracool.shadows import (
     building_shadow,
     shadow_displacement,
     shadow_length,
     shadow_union,
     sweep,
 )
-from tenshadows.solar import SunPosition
+from dracool.solar import SunPosition
 
 
 A_MIN = CONSTANTS.solar.min_altitude_deg
@@ -125,7 +125,7 @@ def test_zero_displacement_returns_the_footprint() -> None:
 
 def test_committed_reference_is_current() -> None:
     path = REFERENCE_DIR / "shadow_points.json"
-    assert path.is_file(), "run `python -m tenshadows.reference`"
+    assert path.is_file(), "run `python -m dracool.reference`"
     committed = json.loads(path.read_text(encoding="utf-8"))["cases"]
     assert committed == shadow_cases(), "reference values are stale, regenerate them"
 

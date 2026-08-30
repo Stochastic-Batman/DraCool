@@ -12,11 +12,11 @@ import geopandas as gpd
 import numpy as np
 import shapely
 
-from tenshadows.cities import City
-from tenshadows.constants import CONSTANTS
-from tenshadows.crs import WGS84, require_wgs84, utm_crs_for
-from tenshadows.graph import StreetGraph
-from tenshadows.heights import HeightSource, provenance
+from dracool.cities import City
+from dracool.constants import CONSTANTS
+from dracool.crs import WGS84, require_wgs84, utm_crs_for
+from dracool.graph import StreetGraph
+from dracool.heights import HeightSource, provenance
 
 
 DATA_DIR: Final[Path] = Path(__file__).resolve().parents[2] / "web" / "static" / "data"
@@ -121,7 +121,7 @@ def meta_payload(
         "attribution": ATTRIBUTION,
         "data_license": DATA_LICENSE,
         "built_at": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
-        "pipeline_version": version("tenshadows"),
+        "pipeline_version": version("dracool"),
         "osm_snapshot": datetime.now(UTC).date().isoformat(),
     }
 

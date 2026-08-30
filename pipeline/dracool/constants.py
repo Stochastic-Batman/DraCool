@@ -89,7 +89,7 @@ def load_constants(path: Path | None = None) -> Constants:
     if version != SUPPORTED_VERSION:
         raise ValueError(
             f"{source} declares schema version {version}, but this build of "
-            f"tenshadows supports version {SUPPORTED_VERSION}. Update the "
+            f"dracool supports version {SUPPORTED_VERSION}. Update the "
             f"package or the file."
         )
 

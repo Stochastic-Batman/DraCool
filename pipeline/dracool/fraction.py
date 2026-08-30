@@ -9,9 +9,9 @@ import shapely
 from shapely.geometry import LineString
 from shapely.geometry.base import BaseGeometry
 
-from tenshadows.constants import CONSTANTS
-from tenshadows.shadows import shadow_length
-from tenshadows.solar import SunPosition
+from dracool.constants import CONSTANTS
+from dracool.shadows import shadow_length
+from dracool.solar import SunPosition
 
 
 # All three estimators here compute the same quantity, Definition 1, by

@@ -10,8 +10,8 @@ from shapely.affinity import translate
 from shapely.geometry import MultiPolygon, Polygon
 from shapely.geometry.base import BaseGeometry
 
-from tenshadows.constants import CONSTANTS
-from tenshadows.solar import SunPosition
+from dracool.constants import CONSTANTS
+from dracool.solar import SunPosition
 
 
 def shadow_length(height_m: float, sun: SunPosition) -> float:

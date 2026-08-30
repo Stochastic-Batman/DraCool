@@ -1,5 +1,5 @@
 {
-  "_comment": "Single source of truth for every constant used by BOTH the Python pipeline and the Svelte client. Read by pipeline/tenshadows/constants.py and by web/src/lib/constants.js. Section references below are to docs/TenShadows.tex.",
+  "_comment": "Single source of truth for every constant used by BOTH the Python pipeline and the Svelte client. Read by pipeline/dracool/constants.py and by web/src/lib/constants.js. Section references below are to docs/DraCool.tex.",
   "version": 1,
 
   "solar": {

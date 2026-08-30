@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 
 [project]
-name = "tenshadows"
+name = "dracool"
 version = "0.1.0"
 description = "Shadow-aware pedestrian routing"
 license = "MIT"
@@ -31,14 +31,14 @@ dev = ["pytest>=8.0", "ruff>=0.6"]
 
 
 [project.scripts]
-tenshadows = "tenshadows.cli:app"
+dracool = "dracool.cli:app"
 
 [project.urls]
-Repository = "https://github.com/Stochastic-Batman/TenShadows"
+Repository = "https://github.com/Stochastic-Batman/DraCool"
 
 
 [tool.hatch.build.targets.wheel]
-packages = ["tenshadows"]
+packages = ["dracool"]
 
 
 # The pipeline is an application we run, not a library we publish, so the

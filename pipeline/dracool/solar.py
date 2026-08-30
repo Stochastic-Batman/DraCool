@@ -6,7 +6,7 @@ from datetime import datetime
 
 import suncalc
 
-from tenshadows.constants import CONSTANTS
+from dracool.constants import CONSTANTS
 
 
 @dataclass(frozen=True)

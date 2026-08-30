@@ -17,7 +17,7 @@
 \theoremstyle{remark}
 \newtheorem{remark}{Remark}
 
-\title{Math behind \texttt{TenShadows}}
+\title{Math behind \texttt{DraCool}}
 \author{Stochastic Batman}
 \date{August 28}
 
@@ -26,7 +26,7 @@
 \maketitle
 
 \begin{abstract}
-\texttt{TenShadows} routes pedestrians through shadows rather than along the shortest path. It does this by attaching to every street segment a number between $0$ and $1$ describing how much of that segment currently lies in the shadow of a building, and then letting the user trade distance against sun exposure. This document derives every piece of this program from scratch. The grammar and some parts of the structure in this document have been corrected by Claude Sonnet 5, though the math and intuition are all mine.
+\texttt{DraCool} routes pedestrians through shadows rather than along the shortest path. It does this by attaching to every street segment a number between $0$ and $1$ describing how much of that segment currently lies in the shadow of a building, and then letting the user trade distance against sun exposure. This document derives every piece of this program from scratch. The grammar and some parts of the structure in this document have been corrected by Claude Sonnet 5, though the math and intuition are all mine.
 
 \end{abstract}
 
@@ -51,7 +51,7 @@ A \emph{coordinate reference system} (CRS) is the specification that tells you w
 
 The EPSG registry (originally the European Petroleum Survey Group) assigns a small integer to each such system, and that integer is the universal way to name one.
 
-Two families matter for \texttt{TenShadows}. \textbf{\texttt{EPSG:4326}}, known as WGS 84, is the geographic system in which coordinates are longitude and latitude in degrees on the reference ellipsoid. This is what GPS reports, what OpenStreetMap stores, and what GeoJSON requires. \textbf{UTM zones} are projected systems in which coordinates are eastings and northings in meters on a flat plane, obtained by slicing the globe into $6^\circ$-wide strips and projecting each strip separately so that distortion within a strip stays small. Tbilisi falls in UTM zone 38N (\texttt{EPSG:32638}) and Saarbr\"ucken in zone 32N (\texttt{EPSG:32632}).
+Two families matter for \texttt{DraCool}. \textbf{\texttt{EPSG:4326}}, known as WGS 84, is the geographic system in which coordinates are longitude and latitude in degrees on the reference ellipsoid. This is what GPS reports, what OpenStreetMap stores, and what GeoJSON requires. \textbf{UTM zones} are projected systems in which coordinates are eastings and northings in meters on a flat plane, obtained by slicing the globe into $6^\circ$-wide strips and projecting each strip separately so that distortion within a strip stays small. Tbilisi falls in UTM zone 38N (\texttt{EPSG:32638}) and Saarbr\"ucken in zone 32N (\texttt{EPSG:32632}).
 
 The working rule for the entire pipeline follows immediately: \textbf{do all geometry in a projected metric CRS, and store or export only in \texttt{EPSG:4326}}. Shadow lengths, translations, intersections, and distances are all metric operations and must happen in UTM. Python's \texttt{GeoPandas} library can pick the right zone automatically via \texttt{gdf.estimate\_utm\_crs()}.
 
@@ -62,7 +62,7 @@ Latitude and longitude locate \emph{you on the Earth}. To describe where the sun
 The \emph{altitude} $a$ is the angle of the object above the horizon: $a = 0^\circ$ means on the horizon, $a = 90^\circ$ means directly overhead, and $a < 0^\circ$ means below the horizon, which for the sun means night. The \emph{azimuth} $A$ is the compass direction you would turn to face, measured clockwise from north, so $A = 0^\circ$ is north, $90^\circ$ east, $180^\circ$ south, and $270^\circ$ west. Together the pair $(a, A)$ pins a single point in the sky, just as $(\varphi, \theta)$ pins a single point on the globe.
 
 \begin{remark}
-The word \emph{altitude} is overloaded and the collision is worth flagging. In aviation and in most GIS contexts, altitude means height above sea level, measured in meters. In astronomy, and throughout this document, altitude means an \emph{angle} above the horizon. \texttt{TenShadows} uses the astronomical sense exclusively. Building heights are always written $h$ and always in meters.
+The word \emph{altitude} is overloaded and the collision is worth flagging. In aviation and in most GIS contexts, altitude means height above sea level, measured in meters. In astronomy, and throughout this document, altitude means an \emph{angle} above the horizon. \texttt{DraCool} uses the astronomical sense exclusively. Building heights are always written $h$ and always in meters.
 \end{remark}
 
 The division of labor between the two angles is what makes shadows computable: \textbf{altitude alone determines how long a shadow is, and azimuth alone determines which way it points}. A low sun makes long shadows regardless of compass direction; a southern sun throws shadows north regardless of how high it sits. The two effects are independent, as you will see in Sections \ref{sec:length} and \ref{sec:polygon}.
@@ -72,13 +72,13 @@ The division of labor between the two angles is what makes shadows computable: \
 
 \subsection{The solar position oracle}
 
-Computing $(a, A)$ from a timestamp and a location is a solved problem in astronomy involving the Earth's orbital elements, its axial tilt, and the equation of time. \texttt{TenShadows} does not re-derive it and this document will not either; I treat it as an oracle
+Computing $(a, A)$ from a timestamp and a location is a solved problem in astronomy involving the Earth's orbital elements, its axial tilt, and the equation of time. \texttt{DraCool} does not re-derive it and this document will not either; I treat it as an oracle
 $$\mathrm{sun}: (\text{timestamp}, \varphi, \theta) \longmapsto (a, A),$$
 implemented by the SunCalc algorithm, which is accurate to well within a tenth of a degree over the range of dates anyone will plausibly query. That accuracy is irrelevant next to the error in our building heights, so there is nothing to gain from a more elaborate model.
 
 \begin{remark}
 \label{rem:convention}
-\texttt{TenShadows} deliberately uses \texttt{suncalc-py} in the Python pipeline and \texttt{suncalc} in the browser, rather than a different library on each side. The reason is not accuracy but \emph{convention}. SunCalc reports azimuth in radians measured clockwise \emph{from south}, whereas the other Python astronomy library I have heard of (\texttt{pvlib}) reports degrees measured clockwise \emph{from north}. Mixing the two conventions rotates every shadow in the city by exactly $180^\circ$, which is obviously not something we want. Where SunCalc's south-based angle $A_{\mathrm{sc}}$ must be converted to the north-based $A$ used throughout this document, the conversion is
+\texttt{DraCool} deliberately uses \texttt{suncalc-py} in the Python pipeline and \texttt{suncalc} in the browser, rather than a different library on each side. The reason is not accuracy but \emph{convention}. SunCalc reports azimuth in radians measured clockwise \emph{from south}, whereas the other Python astronomy library I have heard of (\texttt{pvlib}) reports degrees measured clockwise \emph{from north}. Mixing the two conventions rotates every shadow in the city by exactly $180^\circ$, which is obviously not something we want. Where SunCalc's south-based angle $A_{\mathrm{sc}}$ must be converted to the north-based $A$ used throughout this document, the conversion is
 $$A = (A_{\mathrm{sc}} + \pi) \mod{2\pi}.$$
 Every formula below assumes the north-based convention.
 \end{remark}
@@ -131,7 +131,7 @@ which is a displacement of $+L$ in the northern component: the shadow points due
 
 \subsection{Clamping the degenerate cases}
 
-Proposition \ref{prop:length} excluded $a \le 0$ and $a = 90^\circ$, and near the excluded lower endpoint the formula is valid but useless. As $a \to 0^+$ we get $L \to \infty$, which in floating point yields shadow polygons that are kilometers long, dominated entirely by the error in $a$ and in $h$. \texttt{TenShadows} therefore applies two clamps. When $a \le 0$ the sun is below the horizon and I set $\sigma(e) = 1$ (see Definition 1 in Section \ref{sec:fraction}) for every edge by convention, since at night the shade term carries no information and the cost function of Section \ref{sec:cost} degenerates gracefully to pure distance. When $0 < a < a_{\min}$ with $a_{\min} = 5^\circ$, I cap the shadow length at $L_{\max} = 200$ m, that is, I use
+Proposition \ref{prop:length} excluded $a \le 0$ and $a = 90^\circ$, and near the excluded lower endpoint the formula is valid but useless. As $a \to 0^+$ we get $L \to \infty$, which in floating point yields shadow polygons that are kilometers long, dominated entirely by the error in $a$ and in $h$. \texttt{DraCool} therefore applies two clamps. When $a \le 0$ the sun is below the horizon and I set $\sigma(e) = 1$ (see Definition 1 in Section \ref{sec:fraction}) for every edge by convention, since at night the shade term carries no information and the cost function of Section \ref{sec:cost} degenerates gracefully to pure distance. When $0 < a < a_{\min}$ with $a_{\min} = 5^\circ$, I cap the shadow length at $L_{\max} = 200$ m, that is, I use
 $$L = \min \left(\frac{h}{\tan a}, \,  L_{\max}\right).$$
 Both constants are pragmatic rather than principled: at such low sun angles the flat-ground assumption of Section \ref{sec:limits} has already failed badly, and no choice of cap makes the output trustworthy.
 
@@ -140,7 +140,7 @@ Both constants are pragmatic rather than principled: at such low sun angles the 
 
 \subsection{The building model}
 
-Proposition \ref{prop:length} casts a single point. A building is a solid, and I need the shadow of the whole thing. \texttt{TenShadows} uses the standard \emph{LoD1} model, which is what OpenStreetMap data supports: building $k$ is an extruded prism with polygonal footprint $B_k \subset \mathbb{R}^2$ in projected meters, vertical walls, a flat roof, and a single height $h_k$ in meters, occupying the solid region
+Proposition \ref{prop:length} casts a single point. A building is a solid, and I need the shadow of the whole thing. \texttt{DraCool} uses the standard \emph{LoD1} model, which is what OpenStreetMap data supports: building $k$ is an extruded prism with polygonal footprint $B_k \subset \mathbb{R}^2$ in projected meters, vertical walls, a flat roof, and a single height $h_k$ in meters, occupying the solid region
 $$V_k = \{(p, z) : p \in B_k, \,  0 \le z \le h_k\} \subset \mathbb{R}^3.$$
 Pitched roofs, setbacks, overhangs, and towers are all flattened into one number. Since $h_k$ itself typically comes from an OSM \texttt{building:levels} tag multiplied by an assumed storey height, the model's crudeness is dominated by the input's crudeness anyway.
 
@@ -186,7 +186,7 @@ The two extremes are worth naming: $\sigma(e) = 0$ means the segment is in full 
 
 \subsection{Sampling, and why exactness would be wasted}
 
-Computing $\ell(e \cap S)$ exactly requires a polygon-polyline overlay against a union of tens of thousands of polygons, which is expensive in Python and considerably worse in JavaScript. \texttt{TenShadows} instead samples. Place $\displaystyle m = \left\lceil \frac{\ell(e)}{\Delta} \right\rceil$ points $p_1, \dots, p_m$ at spacing $\Delta$ along $e$ and estimate
+Computing $\ell(e \cap S)$ exactly requires a polygon-polyline overlay against a union of tens of thousands of polygons, which is expensive in Python and considerably worse in JavaScript. \texttt{DraCool} instead samples. Place $\displaystyle m = \left\lceil \frac{\ell(e)}{\Delta} \right\rceil$ points $p_1, \dots, p_m$ at spacing $\Delta$ along $e$ and estimate
 $$\hat{\sigma}(e) = \frac{1}{m}\sum_{i=1}^{m} \mathbf{I}_{\{p_i \in S\}},$$
 where $\mathbf{I}_{\{\cdot\}}$ is the indicator, equal to $1$ when its argument holds and $0$ otherwise. The estimator misclassifies only the sampling intervals straddling a shadow boundary, so its error is bounded by $\Delta \cdot (\text{number of boundary crossings along } e) / \ell(e)$, which for $\Delta = 5$m and a typical block with a handful of crossings sits well under a percent. Since building heights are themselves uncertain by several meters, refining $\Delta$ below this buys precision the inputs cannot support.
 
@@ -206,7 +206,7 @@ By definition $p \in S$ iff $p \in S_k$ for some $k$, and $p \in S_k = \bigcup_{
 
 The reading is exactly the physical one: to decide whether you are standing in shade, look towards the sun and walk in that direction; you are shaded precisely if you run into a building before going further than that building's own shadow length. Equivalently, and more suggestively, the sun ray reaching $p$ climbs at slope $\tan a$, so at horizontal distance $\tau$ it is at height $\tau \tan a$, and building $k$ blocks it exactly when the ray passes over the footprint while still below the roof, that is, when $\tau \tan a \le h_k$.
 
-Computationally this replaces a global polygon union with an independent, short, bounded ray query per sample point, answerable against a static R-tree over the footprints. That is cheap enough to run in a Web Worker whenever the user moves the time slider, which is what lets \texttt{TenShadows} ship building geometry to the client and compute shade live rather than pre-baking a fraction that would be valid for only one instant.
+Computationally this replaces a global polygon union with an independent, short, bounded ray query per sample point, answerable against a static R-tree over the footprints. That is cheap enough to run in a Web Worker whenever the user moves the time slider, which is what lets \texttt{DraCool} ship building geometry to the client and compute shade live rather than pre-baking a fraction that would be valid for only one instant.
 
 \section{The edge cost function}
 \label{sec:cost}
@@ -243,7 +243,7 @@ Note finally that $\sigma$ enters the cost only through a per-edge multiplicatio
 \section{Assumptions and limitations}
 \label{sec:limits}
 
-The ground is assumed \emph{flat and at elevation zero}, which is what lets Proposition \ref{prop:length} solve $q_z = 0$; on Tbilisi's hills this is materially wrong, since a shadow cast downhill runs long and one cast uphill is cut short, and correcting it requires a digital elevation model and ray-marching against terrain rather than a single plane intersection. Buildings are assumed to be \emph{opaque flat-roofed prisms} of a single height, which discards pitched roofs and arcades and is anyway finer than the height data deserves. Buildings are assumed to be the \emph{only} occluders, which omits trees, and on residential streets trees are very often the dominant source of shade. Unfortunately, OpenStreetMap doesn't carry \texttt{natural=tree} tags consistently. As the source of light, only \emph{direct} sunlight is modeled. Finally, and most consequentially, \emph{building heights come from OSM tags} that are sparse in many cities. Ironically, neither Tbilisi nor Saarbr\"ucken has enough data to escape this problem: querying OpenStreetMap directly (as of August 28, 2026, a figure that will drift as the map is edited) shows that only $0.23\%$ of Tbilisi's buildings and $0.14\%$ of Saarbr\"ucken's carry an explicit \texttt{height} tag, while \texttt{building:levels} is present on roughly $15\%$ and $19\%$ of them respectively, leaving the large majority of buildings in both cities to the type-based default. Where \texttt{height} is absent \texttt{TenShadows} falls back to \texttt{building:levels} multiplied by an assumed storey height and then to that default.
+The ground is assumed \emph{flat and at elevation zero}, which is what lets Proposition \ref{prop:length} solve $q_z = 0$; on Tbilisi's hills this is materially wrong, since a shadow cast downhill runs long and one cast uphill is cut short, and correcting it requires a digital elevation model and ray-marching against terrain rather than a single plane intersection. Buildings are assumed to be \emph{opaque flat-roofed prisms} of a single height, which discards pitched roofs and arcades and is anyway finer than the height data deserves. Buildings are assumed to be the \emph{only} occluders, which omits trees, and on residential streets trees are very often the dominant source of shade. Unfortunately, OpenStreetMap doesn't carry \texttt{natural=tree} tags consistently. As the source of light, only \emph{direct} sunlight is modeled. Finally, and most consequentially, \emph{building heights come from OSM tags} that are sparse in many cities. Ironically, neither Tbilisi nor Saarbr\"ucken has enough data to escape this problem: querying OpenStreetMap directly (as of August 28, 2026, a figure that will drift as the map is edited) shows that only $0.23\%$ of Tbilisi's buildings and $0.14\%$ of Saarbr\"ucken's carry an explicit \texttt{height} tag, while \texttt{building:levels} is present on roughly $15\%$ and $19\%$ of them respectively, leaving the large majority of buildings in both cities to the type-based default. Where \texttt{height} is absent \texttt{DraCool} falls back to \texttt{building:levels} multiplied by an assumed storey height and then to that default.
 
 \section{Notation}
 \label{sec:notation}

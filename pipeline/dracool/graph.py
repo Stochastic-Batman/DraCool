@@ -11,8 +11,8 @@ import numpy as np
 import osmnx as ox
 from shapely.geometry import LineString
 
-from tenshadows.cities import City
-from tenshadows.crs import to_utm
+from dracool.cities import City
+from dracool.crs import to_utm
 
 
 @dataclass(frozen=True)

@@ -12,12 +12,12 @@ import pytest
 from pyproj import Geod
 from shapely.geometry import LineString
 
-from tenshadows.cities import get_city
-from tenshadows.crs import to_utm
-from tenshadows.export import COORD_DECIMALS, HEIGHT_CODES, export_city, write_manifest
-from tenshadows.fetch import load_fixture_buildings, load_fixture_graph
-from tenshadows.graph import StreetGraph, oriented, street_graph
-from tenshadows.heights import resolve_frame
+from dracool.cities import get_city
+from dracool.crs import to_utm
+from dracool.export import COORD_DECIMALS, HEIGHT_CODES, export_city, write_manifest
+from dracool.fetch import load_fixture_buildings, load_fixture_graph
+from dracool.graph import StreetGraph, oriented, street_graph
+from dracool.heights import resolve_frame
 
 
 TBILISI = get_city("tbilisi")

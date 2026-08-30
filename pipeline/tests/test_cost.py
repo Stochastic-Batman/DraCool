@@ -10,13 +10,13 @@ import osmnx as ox
 import pytest
 from shapely.geometry import LineString
 
-from tenshadows.cities import get_city
-from tenshadows.cost import discounted_cost, edge_cost, sun_exposure
-from tenshadows.crs import to_utm, utm_crs_for
-from tenshadows.fetch import load_fixture_buildings, load_fixture_graph
-from tenshadows.fraction import Occluders, fraction_raycast
-from tenshadows.heights import resolve_frame
-from tenshadows.solar import SunPosition
+from dracool.cities import get_city
+from dracool.cost import discounted_cost, edge_cost, sun_exposure
+from dracool.crs import to_utm, utm_crs_for
+from dracool.fetch import load_fixture_buildings, load_fixture_graph
+from dracool.fraction import Occluders, fraction_raycast
+from dracool.heights import resolve_frame
+from dracool.solar import SunPosition
 
 
 SUN = SunPosition(altitude_deg=25.0, azimuth_deg=140.0)

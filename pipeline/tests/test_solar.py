@@ -9,9 +9,9 @@ from datetime import UTC, datetime
 import pytest
 import suncalc
 
-from tenshadows.cities import all_cities
-from tenshadows.reference import REFERENCE_DIR, solar_cases
-from tenshadows.solar import SunPosition, sun_position
+from dracool.cities import all_cities
+from dracool.reference import REFERENCE_DIR, solar_cases
+from dracool.solar import SunPosition, sun_position
 
 
 SYDNEY = (-33.8688, 151.2093)
@@ -103,6 +103,6 @@ def test_sun_is_below_horizon_at_local_midnight() -> None:
 # drift between them and the code would let the two languages diverge unnoticed.
 def test_committed_reference_is_current() -> None:
     path = REFERENCE_DIR / "solar.json"
-    assert path.is_file(), "run `python -m tenshadows.reference`"
+    assert path.is_file(), "run `python -m dracool.reference`"
     committed = json.loads(path.read_text(encoding="utf-8"))["cases"]
     assert committed == solar_cases(), "reference values are stale, regenerate them"

@@ -7,9 +7,9 @@ import geopandas as gpd
 import networkx as nx
 import typer
 
-from tenshadows.cities import City, all_cities, get_city
-from tenshadows.export import export_city, write_manifest
-from tenshadows.fetch import (
+from dracool.cities import City, all_cities, get_city
+from dracool.export import export_city, write_manifest
+from dracool.fetch import (
     MINI_BBOX,
     fetch_buildings,
     fetch_graph,
@@ -17,12 +17,12 @@ from tenshadows.fetch import (
     load_fixture_graph,
     write_fixture,
 )
-from tenshadows.graph import street_graph
-from tenshadows.heights import resolve_frame
-from tenshadows.reference import write_reference
+from dracool.graph import street_graph
+from dracool.heights import resolve_frame
+from dracool.reference import write_reference
 
 
-app = typer.Typer(add_completion=False, help="TenShadows data pipeline.")
+app = typer.Typer(add_completion=False, help="DraCool data pipeline.")
 
 
 def _export(city: City, buildings: gpd.GeoDataFrame, graph: nx.MultiDiGraph) -> None:
@@ -51,7 +51,7 @@ def build(
     elif city is not None:
         targets = [get_city(city)]
     else:
-        raise typer.BadParameter("give --city <key> or --all. `tenshadows cities` lists them.")
+        raise typer.BadParameter("give --city <key> or --all. `dracool cities` lists them.")
 
     for target in targets:
         _export(target, fetch_buildings(target), fetch_graph(target))

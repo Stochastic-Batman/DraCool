@@ -8,9 +8,9 @@ import geopandas as gpd
 import pytest
 import shapely
 
-from tenshadows.cities import get_city
-from tenshadows.crs import require_wgs84, to_utm, to_wgs84, utm_crs_for
-from tenshadows.fetch import load_fixture_buildings
+from dracool.cities import get_city
+from dracool.crs import require_wgs84, to_utm, to_wgs84, utm_crs_for
+from dracool.fetch import load_fixture_buildings
 
 
 TBILISI = get_city("tbilisi")

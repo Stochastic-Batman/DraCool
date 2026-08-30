@@ -10,11 +10,11 @@ import pytest
 import shapely
 from shapely.geometry import LineString, Polygon
 
-from tenshadows.cities import get_city
-from tenshadows.constants import CONSTANTS
-from tenshadows.crs import to_utm
-from tenshadows.fetch import load_fixture_buildings
-from tenshadows.fraction import (
+from dracool.cities import get_city
+from dracool.constants import CONSTANTS
+from dracool.crs import to_utm
+from dracool.fetch import load_fixture_buildings
+from dracool.fraction import (
     Occluders,
     fraction_exact,
     fraction_raycast,
@@ -22,10 +22,10 @@ from tenshadows.fraction import (
     raycast_shaded,
     sample_offsets,
 )
-from tenshadows.heights import resolve_frame
-from tenshadows.reference import REFERENCE_DIR, shade_cases
-from tenshadows.shadows import shadow_union
-from tenshadows.solar import SunPosition
+from dracool.heights import resolve_frame
+from dracool.reference import REFERENCE_DIR, shade_cases
+from dracool.shadows import shadow_union
+from dracool.solar import SunPosition
 
 
 DELTA = CONSTANTS.sampling.spacing_m
@@ -192,7 +192,7 @@ def _xy(edge: LineString, spacing: float) -> tuple[np.ndarray, np.ndarray]:
 # coordinates, footprints, heights and edges all travel in the one file.
 def test_committed_reference_scene_is_current() -> None:
     path = REFERENCE_DIR / "shade_mini.json"
-    assert path.is_file(), "run `python -m tenshadows.reference`"
+    assert path.is_file(), "run `python -m dracool.reference`"
     committed = json.loads(path.read_text(encoding="utf-8"))
     committed.pop("_comment", None)
     assert committed == shade_cases(), "the reference scene is stale, regenerate it"

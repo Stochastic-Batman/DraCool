@@ -3,7 +3,7 @@ from __future__ import annotations
 import geopandas as gpd
 from pyproj import CRS
 
-from tenshadows.cities import City
+from dracool.cities import City
 
 
 WGS84: str = "EPSG:4326"
