@@ -17,8 +17,11 @@ onmessage = ({ data }) => {
   }
 
   const started = performance.now();
-  const sigma = shade(samples, occ, data.sun);
+  const sigma = shade(samples, occ, data.sun, undefined, data.stride);
   // Transferred, not copied: a Float32Array per edge is half a megabyte on a
   // city, and it is dead here the moment it is sent.
-  postMessage({ sigma, ms: performance.now() - started, seq: data.seq }, [sigma.buffer]);
+  postMessage(
+    { sigma, ms: performance.now() - started, seq: data.seq, stride: data.stride },
+    [sigma.buffer],
+  );
 };

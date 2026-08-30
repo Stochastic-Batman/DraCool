@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { bidirectional } from "graphology-shortest-path/dijkstra";
 import { describe, expect, it } from "vitest";
 import { sunExposure, walked, weights } from "$lib/cost.js";
-import { astar, buildGraph, flatten, nearestNode, scratch } from "$lib/router.js";
-import { graphOf, streetsOf } from "./scene.js";
+import { adjacency, astar, nearestNode, scratch } from "$lib/router.js";
+import { graphOf, graphologyOf, streetsOf } from "./scene.js";
 
 
 const scene = JSON.parse(readFileSync("../fixtures/reference/shade_mini.json", "utf8"));
@@ -13,8 +13,8 @@ const scene = JSON.parse(readFileSync("../fixtures/reference/shade_mini.json", "
 // actual connected graph rather than a synthetic one. Sigma comes with it,
 // already agreed with the pipeline by shade.test.js, at four sun positions.
 const streets = streetsOf(scene);
-const graph = buildGraph(streets);
-const view = flatten(graph);
+const graph = graphologyOf(streets);
+const view = adjacency(streets);
 const work = scratch(view);
 
 const WS = [0, 0.2, 1, 3];
@@ -178,7 +178,7 @@ describe("a click snaps to the nearest node", () => {
 describe("the graph the client decodes routes the same way", () => {
   it("flattens graph.json's own layout into the same adjacency", () => {
     const g = graphOf({ edges: [{ polyline: [[0, 0], [10, 0]] }, { polyline: [[10, 0], [10, 5]] }] });
-    const v = flatten(buildGraph(g));
+    const v = adjacency(g);
     expect(v.offset.length).toBe(g.x.length + 1);
     expect(v.to.length).toBe(2 * g.u.length);
   });

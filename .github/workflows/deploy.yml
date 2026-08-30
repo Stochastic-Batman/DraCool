@@ -1,0 +1,104 @@
+name: Deploy
+
+# The site is static, so "deploy" means: build the city artifacts, build the
+# client against the Pages subpath, and publish. Nothing runs on a server.
+on:
+  push:
+    branches: [main]
+  # The city below switches on a date, and a repository with no pushes would
+  # never notice. This is what makes the switch happen on its own.
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      city:
+        description: "City key to build. Leave empty to choose by date."
+        required: false
+        type: string
+
+# Pages deployment needs these; the default token is read-only.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and never cancel one half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  BASE_PATH: /DraCool
+  # Bump to make the next run re-download from Overpass. OSM drifts, and the
+  # cache below would otherwise serve the same extract forever.
+  OVERPASS_EPOCH: v1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Only one city is published: a visitor downloads the whole of it, and a
+      # second city is several more megabytes on a phone for something they did
+      # not ask for. Tbilisi until the 28th of September 2026, Saarbrücken
+      # after; override it by hand from the Actions tab at any time.
+      - name: Choose the city
+        id: pick
+        run: |
+          if [ -n "${{ inputs.city }}" ]; then
+            city="${{ inputs.city }}"
+          elif [ "$(date -u +%Y%m%d)" -lt 20260928 ]; then
+            city=tbilisi
+          else
+            city=saarbruecken
+          fi
+          echo "city=$city" >> "$GITHUB_OUTPUT"
+          echo "Building $city"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+
+      # Overpass is a free service and a city is a heavy query, so a deploy
+      # that changed only the client must not re-download one.
+      - name: Cache the Overpass extract
+        uses: actions/cache@v6
+        with:
+          path: pipeline/.cache
+          key: overpass-${{ env.OVERPASS_EPOCH }}-${{ steps.pick.outputs.city }}
+
+      - name: Build the city artifacts
+        working-directory: pipeline
+        run: |
+          uv sync --locked
+          uv run dracool build --city ${{ steps.pick.outputs.city }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build the client
+        working-directory: web
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: web/build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - id: pages
+        uses: actions/deploy-pages@v5

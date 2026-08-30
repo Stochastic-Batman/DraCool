@@ -1,3 +1,6 @@
+import Graph from "graphology";
+
+
 // shade_mini.json carries each footprint as one flat coordinate run, the way
 // shapely.get_coordinates emits it, so the ring structure has to be recovered
 // before the client's CSR layout can be rebuilt. A ring is closed, so it ends
@@ -150,4 +153,13 @@ export function graphOf(golden) {
   g.interiorOffset[n] = m;
 
   return g;
+}
+
+// graphology holds the graph only here, so that its Dijkstra can answer the
+// same questions as our A*. Nothing in the browser builds one.
+export function graphologyOf(g) {
+  const graph = new Graph({ type: "undirected", multi: true, allowSelfLoops: true });
+  for (let i = 0; i < g.x.length; i += 1) graph.addNode(i);
+  for (let e = 0; e < g.u.length; e += 1) graph.addEdgeWithKey(e, g.u[e], g.v[e]);
+  return graph;
 }

@@ -145,6 +145,29 @@ describe("Proposition 2 reproduces the pipeline's sigma", () => {
     });
   });
 
+  // The strided preview is the same estimator asked a coarser question, so it
+  // has to stay near the settled answer without being confused for it.
+  it("previews within a few percent at a coarser spacing", () => {
+    const sun = { alt: scene.suns[1].altitude_deg, azi: scene.suns[1].azimuth_deg };
+    const exact = shade(samples, occ, sun);
+    const preview = shade(samples, occ, sun, undefined, 3);
+
+    let worst = 0;
+    let total = 0;
+    for (let e = 0; e < exact.length; e += 1) {
+      worst = Math.max(worst, Math.abs(preview[e] - exact[e]));
+      total += Math.abs(preview[e] - exact[e]);
+    }
+
+    expect(total / exact.length).toBeLessThan(0.05);
+    expect(worst).toBeLessThanOrEqual(1);
+  });
+
+  it("is the settled answer at stride 1", () => {
+    const sun = { alt: scene.suns[1].altitude_deg, azi: scene.suns[1].azimuth_deg };
+    expect([...shade(samples, occ, sun, undefined, 1)]).toEqual([...shade(samples, occ, sun)]);
+  });
+
   it("fixes sigma at 1 everywhere after sunset", () => {
     const sigma = shade(samples, occ, { alt: -5, azi: 270 });
     expect([...sigma].every((v) => v === 1)).toBe(true);

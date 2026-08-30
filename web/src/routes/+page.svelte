@@ -10,7 +10,7 @@
   import { sunExposure, walked, weights } from "$lib/cost.js";
   import { loadCity, loadManifest, nodePoints, routeGeoJSON } from "$lib/load.js";
   import { SHADE_STEPS, shadeBuckets } from "$lib/overlay.js";
-  import { astar, buildGraph, flatten, nearestNode, scratch } from "$lib/router.js";
+  import { adjacency, astar, nearestNode, scratch } from "$lib/router.js";
   import { isNight, sunPosition } from "$lib/solar.js";
   import { app } from "$lib/stores.svelte.js";
 
@@ -43,7 +43,18 @@
   let again = false;
   let seq = 0;
 
-  function send() {
+  // Dragging the clock across a city the size of Tbilisi asks for a pass a
+  // second, and a full one costs the better part of one. So a moving slider
+  // gets a strided preview sized to a budget, and the exact pass follows once
+  // it stops. The preview is Section 5.2's estimator at a coarser spacing, not
+  // a different calculation, and the panel says which one is on screen.
+  const SAMPLE_BUDGET = 320_000;
+  const SETTLE_MS = 260;
+
+  let stride = 1;
+  let settle = null;
+
+  function send(exact = false) {
     if (!worker || !seeded || !sun) return;
     if (running) {
       again = true;
@@ -51,7 +62,7 @@
     }
     running = true;
     seq += 1;
-    worker.postMessage({ sun: { alt: sun.alt, azi: sun.azi }, seq });
+    worker.postMessage({ sun: { alt: sun.alt, azi: sun.azi }, seq, stride: exact ? 1 : stride });
   }
 
   function receive({ data }) {
@@ -65,7 +76,12 @@
     if (data.seq === seq) {
       let total = 0;
       for (const v of data.sigma) total += v;
-      app.shade = { sigma: data.sigma, ms: data.ms, mean: total / data.sigma.length };
+      app.shade = {
+        sigma: data.sigma,
+        ms: data.ms,
+        mean: total / data.sigma.length,
+        exact: data.stride === 1,
+      };
     }
     if (again) {
       again = false;
@@ -95,15 +111,24 @@
     app.shade = null;
     running = false;
     again = false;
+    // A preview costs about what a full pass costs divided by the stride, so
+    // the stride is whatever keeps the work bounded on this city. Small cities
+    // land on 1 and never take a coarse pass at all.
+    const points = city.samples.offset[city.graph.u.length];
+    stride = Math.max(1, Math.ceil(points / SAMPLE_BUDGET));
+
     const { height, polygonOffset, ringOffset, x, y } = city.buildings;
     worker.postMessage({
       scene: { buildings: { height, polygonOffset, ringOffset, x, y }, samples: city.samples },
     });
   });
 
+  // The sun moved. Preview now, exact when the slider has been still a moment.
   $effect(() => {
     sun;
     send();
+    clearTimeout(settle);
+    settle = setTimeout(() => send(true), SETTLE_MS);
   });
 
   // The cost tier. Built once per city, then reused: the weights array and the
@@ -121,7 +146,7 @@
       routing = null;
       return;
     }
-    const view = flatten(buildGraph(city.graph));
+    const view = adjacency(city.graph);
     routing = {
       view,
       work: scratch(view),
@@ -215,12 +240,27 @@
   }
 
   const ms = (value) => `${value.toFixed(0)} ms`;
+
+  // On a phone the panel is a bottom sheet over the map, so everything past
+  // the controls and the route folds away. On a wide screen there is room for
+  // all of it and it starts open.
+  let open = $state(true);
 </script>
 
 <CityMap {city} shade={shadeLines} route={routeLine} ends={endPoints} onpick={pick} />
 
-<aside>
-  <h1>DraCool</h1>
+<aside class:open>
+  <header>
+    <h1>DraCool</h1>
+    <button
+      type="button"
+      aria-expanded={open}
+      aria-controls="panel-more"
+      onclick={() => (open = !open)}
+    >
+      {open ? "Less" : "More"}
+    </button>
+  </header>
 
   {#if cities.length > 1}
     <select value={key} onchange={(event) => select(event.currentTarget.value)}>
@@ -236,10 +276,6 @@
     <p>Loading…</p>
   {:else}
     <TimeSlider {tz} bind:when={app.when} />
-    <SunDial {sun} />
-
-    <hr />
-
     <ShadeSlider bind:w={app.w} />
 
     {#if app.route}
@@ -260,9 +296,14 @@
       </p>
     {/if}
 
-    <hr />
+    <div id="panel-more" class="more" hidden={!open}>
+      <hr />
 
-    <h2>Shade</h2>
+      <SunDial {sun} />
+
+      <hr />
+
+      <h2>Shade</h2>
     <!-- A legend, because the overlay carries its meaning in colour and a
          reader who cannot recover the scale is looking at decoration. -->
     <div class="ramp">
@@ -276,6 +317,12 @@
       <dt>network in shade</dt>
       <dd>{app.shade ? `${(app.shade.mean * 100).toFixed(1)}%` : "…"}</dd>
     </dl>
+
+    <!-- A coarse pass is a real answer to a coarser question, so it is labelled
+         rather than passed off as the settled one. -->
+    {#if app.shade && !app.shade.exact}
+      <p class="note">Preview while the clock moves; refining…</p>
+    {/if}
 
     <hr />
 
@@ -296,8 +343,9 @@
         <dd>{app.shade ? ms(app.shade.ms) : "…"}</dd>
         <dt>route</dt>
         <dd>{app.route ? ms(app.route.ms) : "…"}</dd>
-      </dl>
-    </details>
+        </dl>
+      </details>
+    </div>
   {/if}
 </aside>
 
@@ -313,7 +361,7 @@
     top: 12px;
     left: 12px;
     width: 232px;
-    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
     overflow-y: auto;
     padding: 12px 14px;
     border-radius: 6px;
@@ -321,9 +369,30 @@
     box-shadow: 0 1px 6px rgb(0 0 0 / 0.2);
   }
 
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
   h1 {
-    margin: 0 0 8px;
+    margin: 0;
     font-size: 15px;
+  }
+
+  /* At least 44px of touch target, which is the smallest a thumb reliably
+     hits, without making it loom on a desktop pointer. */
+  header button {
+    min-height: 32px;
+    padding: 4px 10px;
+    border: 1px solid #d6d3cd;
+    border-radius: 6px;
+    background: #ffffff;
+    font: inherit;
+    color: #52514e;
+    cursor: pointer;
   }
 
   select {
@@ -394,5 +463,37 @@
   .error {
     margin: 0;
     color: #b91c1c;
+  }
+
+  /* A phone. The panel stops floating over the map and becomes a sheet on the
+     bottom edge, where a thumb reaches, and everything past the controls and
+     the route folds away so the map keeps most of the screen. */
+  @media (max-width: 640px) {
+    aside {
+      top: auto;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      width: auto;
+      max-height: 68dvh;
+      border-radius: 12px 12px 0 0;
+      padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+      box-shadow: 0 -2px 12px rgb(0 0 0 / 0.18);
+    }
+
+    header button {
+      min-height: 44px;
+      min-width: 64px;
+    }
+
+    /* Fingers, not a mouse pointer. */
+    aside :global(input[type="range"]) {
+      height: 32px;
+    }
+
+    select,
+    aside :global(input[type="date"]) {
+      min-height: 40px;
+    }
   }
 </style>

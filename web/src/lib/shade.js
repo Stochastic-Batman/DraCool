@@ -6,6 +6,11 @@ import { horizontal, isNight } from "./solar.js";
 
 const DEG = Math.PI / 180;
 
+// Measured on Tbilisi: eleven octave bands cost 495 ms a pass, four cost 376,
+// and two cost 554 because the crowded low band then gets searched at a tall
+// building's reach. Four is the floor of that curve.
+const MAX_BANDS = 4;
+
 
 // L = h / tan(a), with the Section 3.3 cap. Night is the caller's business:
 // Definition 1 fixes sigma = 1 for every edge and no shadow is computed at all.
@@ -115,13 +120,40 @@ export function occluders({ height, polygonOffset, ringOffset, x, y }) {
 
   // Ascending, so the cheap crowded queries run first and a hit there spares
   // the expensive ones entirely.
-  const bands = [...members.entries()]
+  let groups = [...members.entries()]
     .sort(([a], [b]) => a - b)
     .map(([, items]) => {
       let top = 0;
       for (const k of items) top = Math.max(top, height[k]);
-      return { items: Int32Array.from(items), tree: buildIndex(box, items), top };
+      return { items, top };
     });
+
+  // Every band costs one index descent per edge, and Tbilisi's heights span
+  // eleven octaves while carrying almost nothing in the tall ones, so the
+  // descents came to more than the candidates did. Bands are merged back until
+  // there are few enough, cheapest merge first: a band's search cost goes as
+  // its population times the square of its reach, so absorbing a sparse band
+  // into a taller neighbour is nearly free, while merging the crowded low band
+  // upward is not and does not happen.
+  while (groups.length > MAX_BANDS) {
+    let at = 0;
+    let cheapest = Infinity;
+    for (let i = 0; i + 1 < groups.length; i += 1) {
+      const cost = groups[i].items.length * (groups[i + 1].top ** 2 - groups[i].top ** 2);
+      if (cost < cheapest) {
+        cheapest = cost;
+        at = i;
+      }
+    }
+    groups[at + 1].items = groups[at].items.concat(groups[at + 1].items);
+    groups.splice(at, 1);
+  }
+
+  const bands = groups.map(({ items, top }) => ({
+    items: Int32Array.from(items),
+    tree: buildIndex(box, items),
+    top,
+  }));
 
   return { height, polygonOffset, ringOffset, x, y, box, bands };
 }
@@ -131,7 +163,12 @@ export function occluders({ height, polygonOffset, ringOffset, x, y }) {
 // shadow length. Because "some tau in [0, L_k]" is the same statement as
 // "tau_min <= L_k", this is the proposition itself and not an approximation
 // of it. No union is ever built, which is what makes it cheap enough here.
-export function shade(samples, occ, sun, out) {
+// `stride` takes every k-th sample point of each edge instead of all of them,
+// which is Section 5.2's estimator at a coarser Delta without a second set of
+// points to keep. It is a preview: at stride 1 this is the sigma the pipeline
+// agrees with, and the caller is expected to come back for that once the
+// slider has stopped moving.
+export function shade(samples, occ, sun, out, stride = 1) {
   const n = samples.offset.length - 1;
   const sigma = out ?? new Float32Array(n);
 
@@ -175,11 +212,13 @@ export function shade(samples, occ, sun, out) {
     const start = samples.offset[e];
     const end = samples.offset[e + 1];
 
+    // Bounded by the points actually tested, so a coarse pass also queries a
+    // smaller box rather than paying for samples it will skip.
     let sx0 = Infinity;
     let sy0 = Infinity;
     let sx1 = -Infinity;
     let sy1 = -Infinity;
-    for (let i = start; i < end; i += 1) {
+    for (let i = start; i < end; i += stride) {
       if (samples.x[i] < sx0) sx0 = samples.x[i];
       if (samples.x[i] > sx1) sx1 = samples.x[i];
       if (samples.y[i] < sy0) sy0 = samples.y[i];
@@ -204,7 +243,9 @@ export function shade(samples, occ, sun, out) {
     }
 
     let shaded = 0;
-    for (let i = start; i < end; i += 1) {
+    let taken = 0;
+    for (let i = start; i < end; i += stride) {
+      taken += 1;
       const px = samples.x[i];
       const py = samples.y[i];
 
@@ -240,7 +281,7 @@ export function shade(samples, occ, sun, out) {
       }
     }
 
-    sigma[e] = shaded / (end - start);
+    sigma[e] = shaded / taken;
   }
 
   return sigma;

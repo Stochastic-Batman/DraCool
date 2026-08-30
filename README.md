@@ -34,7 +34,7 @@ Shadow fractions are computed in the browser rather than baked into the artifact
 
 ## Status
 
-The pipeline and the client are both complete. Deployment is what is left.
+Complete and deployed. The live site is at **https://stochastic-batman.github.io/DraCool/**.
 
 ```
 pipeline/    Python data engine
@@ -68,10 +68,19 @@ The network is coloured by `sigma`: one blue ramp, light for sun and dark for sh
 
 The city switcher is built from `web/static/data/cities.json`, which the pipeline writes from the artifacts.
 
-Deployment is to a GitHub Pages subpath. Serve the built site from a subdirectory instead:
+Phones get the panel as a bottom sheet with the map above it, and everything past the controls and the route folds behind a **More** button.
+
+
+## Deployment
+
+`.github/workflows/deploy.yml` publishes to GitHub Pages on every push to `main`. It builds the city artifacts with the pipeline, builds the client against the Pages subpath, and uploads the result; nothing runs on a server afterwards, which is the whole point of computing shade in the browser.
+
+Only **one** city is published at a time: Tbilisi until the 28th of September 2026 and Saarbrücken after it. A visitor downloads the whole of whichever city is live, so a second one is several megabytes on a phone for something nobody asked for. The date is a line in the workflow, a weekly cron makes the switch happen without a push, and the Actions tab can build either city on demand through **Run workflow**.
+
+Overpass responses are cached between runs under a key holding `OVERPASS_EPOCH`, so a change to the client never re-downloads a city. Bump that variable to pull fresh OSM data.
 
 ```sh
-npm run build
+BASE_PATH=/DraCool npm run build
 mkdir -p /tmp/pages/DraCool && cp -r build/* /tmp/pages/DraCool/
 python3 -m http.server 8000 --directory /tmp/pages   # open /DraCool/
 ```
@@ -92,6 +101,8 @@ Frontend tests:
 ```sh
 cd web && npm test
 ```
+
+`graphology` is a development dependency, not a runtime one.
 
 `suncalc` is pinned to the 1.x line on purpose: `suncalc-py` is a port of it, and they agree to 5e-10 degrees. Version 2 rewrote the series and disagrees by up to a degree of azimuth, which would rotate every shadow in the city.
 

@@ -58,11 +58,21 @@
   }
 
   onMount(async () => {
-    const { config, Map: MapLibre, NavigationControl } = await import("maplibre-gl");
+    const { AttributionControl, config, Map: MapLibre, NavigationControl } =
+      await import("maplibre-gl");
     config.WORKER_URL = workerUrl;
 
-    map = new MapLibre({ container, style: await basemapStyle(), center: [0, 0], zoom: 1 });
-    map.addControl(new NavigationControl(), "top-right");
+    map = new MapLibre({
+      container,
+      style: await basemapStyle(),
+      center: [0, 0],
+      zoom: 1,
+      // Placed by hand below. The default corner is the bottom, which is where
+      // the panel sits on a phone, and the ODbL credit has to stay visible.
+      attributionControl: false,
+    });
+    map.addControl(new NavigationControl({ showCompass: false }), "top-right");
+    map.addControl(new AttributionControl({ compact: true }), "top-right");
     map.on("error", (event) => console.warn("maplibre:", event.error?.message ?? event));
     map.on("click", (event) => onpick?.(event.lngLat.lng, event.lngLat.lat));
     // `load` fires once. Latching it beats asking isStyleLoaded() later, which

@@ -1,43 +1,37 @@
-import Graph from "graphology";
-
-
-// Roadmap Section 1.6: graphology holds the graph, and A* is ours because
-// graphology-shortest-path ships Dijkstra and not A*, while Proposition 3
-// exists precisely to license A* with a Euclidean heuristic. The search itself
-// runs over the flat view below rather than over the graph object: it reads
-// weights from a Float32Array indexed by edge, which is what keeps a re-weight
-// on the shade slider a single pass over contiguous memory.
-
-export function buildGraph(g) {
-  const graph = new Graph({ type: "undirected", multi: true, allowSelfLoops: true });
-  for (let i = 0; i < g.x.length; i += 1) graph.addNode(i);
-  for (let e = 0; e < g.u.length; e += 1) graph.addEdgeWithKey(e, g.u[e], g.v[e]);
-  return graph;
-}
+// Roadmap Section 1.6 put the network in graphology and ran A* over a flat
+// view of it. The flat view is the only thing the search ever reads, so the
+// library was measured out again: building it cost 284 ms per load on Tbilisi
+// against about 10 ms to fill these arrays straight from the columnar graph,
+// for a structure nothing in the browser queries. It stays in the test suite,
+// where its Dijkstra is an independent oracle for the search below, and that
+// is the whole of what it was earning.
+//
+// A* is ours because graphology-shortest-path ships Dijkstra and not A*, while
+// Proposition 3 exists precisely to license A* with a Euclidean heuristic.
 
 // Adjacency in CSR: node -> its arcs, each carrying the neighbour and the edge
 // index the weight lives at. Undirected, so every edge appears from both ends;
 // the walking network has no one-way streets to model.
-export function flatten(graph) {
-  const n = graph.order;
+export function adjacency({ u, v, x }) {
+  const n = x.length;
   const offset = new Int32Array(n + 1);
-  graph.forEachEdge((key, attr, s, t) => {
-    offset[+s + 1] += 1;
-    offset[+t + 1] += 1;
-  });
+  for (let e = 0; e < u.length; e += 1) {
+    offset[u[e] + 1] += 1;
+    offset[v[e] + 1] += 1;
+  }
   for (let i = 0; i < n; i += 1) offset[i + 1] += offset[i];
 
   const to = new Int32Array(offset[n]);
   const via = new Int32Array(offset[n]);
   const at = offset.slice(0, n);
-  graph.forEachEdge((key, attr, s, t) => {
-    to[at[+s]] = +t;
-    via[at[+s]] = +key;
-    at[+s] += 1;
-    to[at[+t]] = +s;
-    via[at[+t]] = +key;
-    at[+t] += 1;
-  });
+  for (let e = 0; e < u.length; e += 1) {
+    to[at[u[e]]] = v[e];
+    via[at[u[e]]] = e;
+    at[u[e]] += 1;
+    to[at[v[e]]] = u[e];
+    via[at[v[e]]] = e;
+    at[v[e]] += 1;
+  }
 
   return { offset, to, via };
 }
